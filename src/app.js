@@ -50,6 +50,7 @@ async function boot() {
 
 /* Normalize older data so newer fields always exist. Grows as features land. */
 function migrate(st) {
+  if (!Array.isArray(st.checklistTemplates)) st.checklistTemplates = [];
   (st.scenes || []).forEach((scene) => {
     if (!Array.isArray(scene.scanFolders)) scene.scanFolders = [];
     (scene.tracks || []).forEach((track) => {
@@ -57,6 +58,9 @@ function migrate(st) {
         const at = track.createdAt || Date.now();
         track.stageHistory = track.stageId ? [{ stageId: track.stageId, at }] : [];
       }
+      if (!Array.isArray(track.attachments)) track.attachments = [];
+      if (!Array.isArray(track.fixes)) track.fixes = [];
+      if (!Array.isArray(track.feedback)) track.feedback = [];
     });
   });
 }
@@ -193,13 +197,19 @@ function renderCard(track) {
   const done = (track.checklist || []).filter((i) => i.done).length;
   const totalItems = (track.checklist || []).length;
 
+  const nAttach = (track.attachments || []).length;
+  const openFixes = (track.fixes || []).filter((f) => !f.done).length;
+  const ind = [];
+  if (nAttach) ind.push(`<span class="ind" title="Attachments">♪ ${nAttach}</span>`);
+  if (openFixes) ind.push(`<span class="ind ind-fix" title="Open fixes">✎ ${openFixes}</span>`);
+
   card.innerHTML = `
     <div class="card-title">${escapeHtml(track.title || 'Untitled')}</div>
     ${meta.length ? `<div class="card-meta">${meta.join('')}</div>` : ''}
     <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
     <div class="card-foot">
       <span>${totalItems ? `${done}/${totalItems} done` : 'No checklist'}</span>
-      <span>${pct}%</span>
+      <span class="card-foot-right">${ind.join('')}<span>${pct}%</span></span>
     </div>`;
 
   card.addEventListener('click', () => openTrackModal(track.id));
@@ -219,7 +229,42 @@ function render() {
 /* ------------------------------------------------------------------ *
  * Track modal
  * ------------------------------------------------------------------ */
-let modalChecklist = []; // working copy while modal open
+let modalChecklist = []; // working copies while modal open
+let modalAttachments = [];
+let modalFixes = [];
+let modalFeedback = [];
+let primaryAudioEl = null; // first audio attachment's <audio>, used by fix seeking
+
+const AUDIO_EXT = ['.wav', '.mp3', '.m4a', '.aac', '.ogg', '.flac', '.aiff', '.aif'];
+const MIDI_EXT = ['.mid', '.midi'];
+
+function extname(name) {
+  const i = name.lastIndexOf('.');
+  return i >= 0 ? name.slice(i).toLowerCase() : '';
+}
+function attachKind(name) {
+  const e = extname(name);
+  if (AUDIO_EXT.includes(e)) return 'audio';
+  if (MIDI_EXT.includes(e)) return 'midi';
+  return 'other';
+}
+function parseTime(str) {
+  const s = String(str).trim();
+  if (!s) return null;
+  if (s.includes(':')) {
+    const [m, sec] = s.split(':');
+    const total = parseInt(m, 10) * 60 + parseInt(sec, 10);
+    return isNaN(total) ? null : total;
+  }
+  const n = parseInt(s, 10);
+  return isNaN(n) ? null : n;
+}
+function fmtTime(total) {
+  const t = Math.max(0, Math.floor(total || 0));
+  const m = Math.floor(t / 60);
+  const s = t % 60;
+  return m + ':' + String(s).padStart(2, '0');
+}
 
 function openTrackModal(trackId) {
   const scene = activeScene();
@@ -239,7 +284,14 @@ function openTrackModal(trackId) {
   stageSel.value = track ? track.stageId : scene.stages[0].id;
 
   modalChecklist = track ? track.checklist.map((i) => ({ ...i })) : [];
+  modalAttachments = track ? (track.attachments || []).map((a) => ({ ...a })) : [];
+  modalFixes = track ? (track.fixes || []).map((f) => ({ ...f })) : [];
+  modalFeedback = track ? (track.feedback || []).map((f) => ({ ...f })) : [];
   renderModalChecklist();
+  renderModalAttachments();
+  renderModalFixes();
+  renderModalFeedback();
+  renderTemplateSelect();
   renderProjectRow(track);
 
   document.getElementById('deleteTrackBtn').style.display = track ? '' : 'none';
@@ -278,6 +330,173 @@ function renderModalChecklist() {
   document.getElementById('tProgressPct').textContent = pct + '%';
 }
 
+/* ---- Attachments ---- */
+function renderModalAttachments() {
+  const ul = document.getElementById('tAttachments');
+  ul.innerHTML = '';
+  primaryAudioEl = null;
+  if (!modalAttachments.length) {
+    ul.innerHTML = '<li class="attach-empty">Nothing attached yet.</li>';
+    return;
+  }
+  modalAttachments.forEach((att) => {
+    const kind = att.kind || attachKind(att.name);
+    const li = document.createElement('li');
+    li.className = 'attach-item';
+    const isAudio = kind === 'audio';
+    li.innerHTML = `
+      <div class="attach-row">
+        <span class="attach-icon">${kind === 'audio' ? '♪' : kind === 'midi' ? '𝅘𝅥' : '⎙'}</span>
+        <span class="attach-name" title="${escapeHtml(att.path)}">${escapeHtml(att.name)}</span>
+        <button class="ghost-btn small attach-reveal" type="button">Show</button>
+        <button class="check-del attach-del" type="button" title="Remove">×</button>
+      </div>
+      ${isAudio ? '<audio class="attach-audio" controls preload="none"></audio>' : ''}`;
+
+    if (isAudio) {
+      const audio = li.querySelector('.attach-audio');
+      audio.src = window.api.mediaUrl(att.path);
+      if (!primaryAudioEl) primaryAudioEl = audio; // first audio drives fix seeking
+    }
+    li.querySelector('.attach-reveal').addEventListener('click', () => window.api.reveal(att.path));
+    li.querySelector('.attach-del').addEventListener('click', () => {
+      modalAttachments = modalAttachments.filter((a) => a.id !== att.id);
+      renderModalAttachments();
+    });
+    ul.appendChild(li);
+  });
+}
+
+async function addAttachments() {
+  const res = await window.api.pickFiles();
+  if (!res.ok) return;
+  res.files.forEach((f) => {
+    if (modalAttachments.some((a) => a.path === f.path)) return; // dedupe
+    modalAttachments.push({ id: uid(), name: f.name, path: f.path, kind: attachKind(f.name) });
+  });
+  renderModalAttachments();
+}
+
+/* ---- Timestamped fixes ---- */
+function renderModalFixes() {
+  const ul = document.getElementById('tFixes');
+  ul.innerHTML = '';
+  if (!modalFixes.length) {
+    ul.innerHTML = '<li class="attach-empty">No fixes noted.</li>';
+    return;
+  }
+  modalFixes
+    .slice()
+    .sort((a, b) => (a.at || 0) - (b.at || 0))
+    .forEach((fix) => {
+      const li = document.createElement('li');
+      li.className = 'fix-item' + (fix.done ? ' done' : '');
+      li.innerHTML = `
+        <input type="checkbox" ${fix.done ? 'checked' : ''} />
+        <button class="fix-time" type="button" title="Jump to this spot">${fmtTime(fix.at)}</button>
+        <span class="fix-text">${escapeHtml(fix.text)}</span>
+        <button class="check-del" type="button" title="Remove">×</button>`;
+      li.querySelector('input').addEventListener('change', (e) => {
+        fix.done = e.target.checked;
+        renderModalFixes();
+      });
+      li.querySelector('.fix-time').addEventListener('click', () => {
+        if (primaryAudioEl) {
+          primaryAudioEl.currentTime = fix.at || 0;
+          primaryAudioEl.play().catch(() => {});
+        } else {
+          toast('Attach an audio file to jump to a spot');
+        }
+      });
+      li.querySelector('.check-del').addEventListener('click', () => {
+        modalFixes = modalFixes.filter((f) => f.id !== fix.id);
+        renderModalFixes();
+      });
+      ul.appendChild(li);
+    });
+}
+
+/* ---- Feedback log ---- */
+function renderModalFeedback() {
+  const ul = document.getElementById('tFeedback');
+  ul.innerHTML = '';
+  if (!modalFeedback.length) {
+    ul.innerHTML = '<li class="attach-empty">No feedback logged.</li>';
+    return;
+  }
+  modalFeedback
+    .slice()
+    .sort((a, b) => (b.at || 0) - (a.at || 0))
+    .forEach((fb) => {
+      const li = document.createElement('li');
+      li.className = 'feedback-item';
+      const when = fb.at ? new Date(fb.at).toLocaleDateString() : '';
+      li.innerHTML = `
+        <div class="feedback-meta">
+          <span class="feedback-who">${escapeHtml(fb.who || 'Someone')}</span>
+          <span class="feedback-when">${when}</span>
+        </div>
+        <div class="feedback-text">${escapeHtml(fb.text)}</div>
+        <div class="feedback-actions">
+          <button class="ghost-btn small fb-to-task" type="button">→ Add as to-do</button>
+          <button class="check-del" type="button" title="Remove">×</button>
+        </div>`;
+      li.querySelector('.fb-to-task').addEventListener('click', () => {
+        modalChecklist.push({ id: uid(), text: fb.text, done: false });
+        renderModalChecklist();
+        toast('Added to checklist');
+      });
+      li.querySelector('.check-del').addEventListener('click', () => {
+        modalFeedback = modalFeedback.filter((f) => f.id !== fb.id);
+        renderModalFeedback();
+      });
+      ul.appendChild(li);
+    });
+}
+
+/* ---- Checklist templates ---- */
+function renderTemplateSelect() {
+  const sel = document.getElementById('templateSelect');
+  const templates = state.checklistTemplates || [];
+  sel.innerHTML =
+    '<option value="">Apply template…</option>' +
+    templates.map((t) => `<option value="${t.id}">${escapeHtml(t.name)} (${t.items.length})</option>`).join('');
+}
+
+function applyTemplate() {
+  const id = document.getElementById('templateSelect').value;
+  const tpl = (state.checklistTemplates || []).find((t) => t.id === id);
+  if (!tpl) return toast('Pick a template first');
+  tpl.items.forEach((text) => modalChecklist.push({ id: uid(), text, done: false }));
+  renderModalChecklist();
+  toast(`Applied "${tpl.name}"`);
+}
+
+function saveTemplate() {
+  if (!modalChecklist.length) return toast('Add some checklist items first');
+  const name = prompt('Template name (e.g. Mixdown, Promo):');
+  if (!name || !name.trim()) return;
+  state.checklistTemplates.push({
+    id: uid(),
+    name: name.trim(),
+    items: modalChecklist.map((i) => i.text)
+  });
+  save();
+  renderTemplateSelect();
+  toast('Template saved');
+}
+
+function deleteTemplate() {
+  const id = document.getElementById('templateSelect').value;
+  const tpl = (state.checklistTemplates || []).find((t) => t.id === id);
+  if (!tpl) return toast('Pick a template to delete');
+  if (!confirm(`Delete template "${tpl.name}"?`)) return;
+  state.checklistTemplates = state.checklistTemplates.filter((t) => t.id !== id);
+  save();
+  renderTemplateSelect();
+  toast('Template deleted');
+}
+
 function saveTrackFromModal() {
   const scene = activeScene();
   const stageId = document.getElementById('tStage').value;
@@ -287,7 +506,10 @@ function saveTrackFromModal() {
     key: document.getElementById('tKey').value.trim(),
     label: document.getElementById('tLabel').value.trim(),
     notes: document.getElementById('tNotes').value,
-    checklist: modalChecklist
+    checklist: modalChecklist,
+    attachments: modalAttachments,
+    fixes: modalFixes,
+    feedback: modalFeedback
   };
 
   if (editingTrackId) {
@@ -709,6 +931,36 @@ function wire() {
     modalChecklist.push({ id: uid(), text, done: false });
     input.value = '';
     renderModalChecklist();
+  });
+
+  document.getElementById('addAttachmentBtn').addEventListener('click', addAttachments);
+  document.getElementById('applyTemplateBtn').addEventListener('click', applyTemplate);
+  document.getElementById('saveTemplateBtn').addEventListener('click', saveTemplate);
+  document.getElementById('delTemplateBtn').addEventListener('click', deleteTemplate);
+
+  document.getElementById('addFixForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const timeEl = document.getElementById('newFixTime');
+    const textEl = document.getElementById('newFixText');
+    const text = textEl.value.trim();
+    if (!text) return;
+    const at = parseTime(timeEl.value);
+    modalFixes.push({ id: uid(), at: at == null ? 0 : at, text, done: false });
+    timeEl.value = '';
+    textEl.value = '';
+    renderModalFixes();
+  });
+
+  document.getElementById('addFeedbackForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const whoEl = document.getElementById('newFeedbackWho');
+    const textEl = document.getElementById('newFeedbackText');
+    const text = textEl.value.trim();
+    if (!text) return;
+    modalFeedback.push({ id: uid(), who: whoEl.value.trim(), text, at: Date.now() });
+    whoEl.value = '';
+    textEl.value = '';
+    renderModalFeedback();
   });
 
   document.getElementById('editStagesBtn').addEventListener('click', openStagesModal);

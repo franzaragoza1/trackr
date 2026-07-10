@@ -1,6 +1,13 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
+
+// Custom scheme to stream local media files into the renderer (supports range
+// requests, so audio seeking works). Must be registered before app is ready.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'trackmedia', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: true } }
+]);
 
 const DATA_FILE = () => path.join(app.getPath('userData'), 'track-manager-data.json');
 
@@ -36,6 +43,17 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // trackmedia://x/<encoded-absolute-path>  ->  streams that local file.
+  protocol.handle('trackmedia', (request) => {
+    try {
+      const encoded = request.url.replace(/^trackmedia:\/\/[^/]*\//, '');
+      const filePath = decodeURIComponent(encoded);
+      return net.fetch(pathToFileURL(filePath).toString());
+    } catch (e) {
+      return new Response('Not found', { status: 404 });
+    }
+  });
+
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -190,4 +208,21 @@ ipcMain.handle('fs:exists', (_e, p) => {
   } catch (e) {
     return false;
   }
+});
+
+ipcMain.handle('pick:files', async () => {
+  const win = BrowserWindow.getFocusedWindow();
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    title: 'Attach files to this track',
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: 'Audio / MIDI', extensions: ['wav', 'mp3', 'm4a', 'aac', 'ogg', 'flac', 'aiff', 'aif', 'mid', 'midi'] },
+      { name: 'All files', extensions: ['*'] }
+    ]
+  });
+  if (canceled || !filePaths.length) return { ok: false };
+  return {
+    ok: true,
+    files: filePaths.map((p) => ({ path: p, name: path.basename(p) }))
+  };
 });

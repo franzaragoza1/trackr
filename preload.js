@@ -10,5 +10,9 @@ contextBridge.exposeInMainWorld('api', {
   scan: (folders) => ipcRenderer.invoke('scan:run', folders),
   openPath: (p) => ipcRenderer.invoke('shell:openPath', p),
   reveal: (p) => ipcRenderer.invoke('shell:reveal', p),
-  exists: (p) => ipcRenderer.invoke('fs:exists', p)
+  exists: (p) => ipcRenderer.invoke('fs:exists', p),
+  pickFiles: () => ipcRenderer.invoke('pick:files'),
+
+  // Build a streamable URL for a local media file.
+  mediaUrl: (p) => 'trackmedia://x/' + encodeURIComponent(p)
 });

@@ -83,6 +83,44 @@
           <form id="addChecklistForm" class="add-check">
             <input type="text" id="newCheckItem" placeholder="Add a to-do and press Enter" />
           </form>
+          <div class="template-bar">
+            <select id="templateSelect" class="template-select"><option value="">Apply template…</option></select>
+            <button class="ghost-btn small" id="applyTemplateBtn" type="button">Apply</button>
+            <button class="ghost-btn small" id="saveTemplateBtn" type="button">Save current as template</button>
+            <button class="ghost-btn small danger" id="delTemplateBtn" type="button">Delete template</button>
+          </div>
+        </div>
+
+        <!-- Attachments -->
+        <div class="section-block">
+          <div class="section-head">
+            <span>Ideas &amp; files</span>
+            <button class="ghost-btn small" id="addAttachmentBtn" type="button">+ Attach files</button>
+          </div>
+          <p class="hint tiny">Links to samples, MIDI or voice notes — files are never moved or copied.</p>
+          <ul id="tAttachments" class="attach-list"></ul>
+        </div>
+
+        <!-- Timestamped fixes -->
+        <div class="section-block">
+          <div class="section-head"><span>Fixes</span></div>
+          <ul id="tFixes" class="fix-list"></ul>
+          <form id="addFixForm" class="add-fix">
+            <input type="text" id="newFixTime" class="time-input" placeholder="2:34" />
+            <input type="text" id="newFixText" placeholder="What needs fixing?" />
+            <button class="ghost-btn small" type="submit">Add</button>
+          </form>
+        </div>
+
+        <!-- Feedback log -->
+        <div class="section-block">
+          <div class="section-head"><span>Feedback</span></div>
+          <ul id="tFeedback" class="feedback-list"></ul>
+          <form id="addFeedbackForm" class="add-feedback">
+            <input type="text" id="newFeedbackWho" class="who-input" placeholder="Who" />
+            <input type="text" id="newFeedbackText" placeholder="What they said" />
+            <button class="ghost-btn small" type="submit">Log</button>
+          </form>
         </div>
 
         <label class="notes-label">Notes
