@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Track Manager</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar: scenes -->
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span>Track Manager</span>
+      </div>
+
+      <div class="side-section">
+        <div class="side-head">
+          <span>Scenes</span>
+          <button class="icon-btn" id="addSceneBtn" title="New scene">+</button>
+        </div>
+        <ul id="sceneList" class="scene-list"></ul>
+      </div>
+
+      <div class="side-footer">
+        <label class="accent-row">
+          Accent
+          <input type="color" id="accentPicker" value="#5b8cff" />
+        </label>
+        <button class="ghost-btn" id="exportBtn">Export backup</button>
+        <button class="ghost-btn" id="importBtn">Import backup</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 id="sceneTitle">—</h1>
+          <span class="scene-stats" id="sceneStats"></span>
+        </div>
+        <div class="topbar-right">
+          <button class="ghost-btn" id="editStagesBtn">Edit stages</button>
+          <button class="ghost-btn" id="renameSceneBtn">Rename scene</button>
+          <button class="ghost-btn danger" id="deleteSceneBtn">Delete scene</button>
+          <button class="primary-btn" id="addTrackBtn">+ New track</button>
+        </div>
+      </header>
+
+      <div id="board" class="board"></div>
+    </main>
+  </div>
+
+  <!-- Track detail modal -->
+  <div class="modal-overlay" id="trackModal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <input type="text" id="tTitle" class="title-input" placeholder="Track title" />
+        <button class="icon-btn" id="closeTrackModal" title="Close">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="field-grid">
+          <label>BPM <input type="number" id="tBpm" min="0" step="1" placeholder="128" /></label>
+          <label>Key <input type="text" id="tKey" placeholder="A min" /></label>
+          <label>Label / destination <input type="text" id="tLabel" placeholder="e.g. My label" /></label>
+          <label>Stage
+            <select id="tStage"></select>
+          </label>
+        </div>
+
+        <div class="checklist-block">
+          <div class="checklist-head">
+            <span>Checklist</span>
+            <div class="progress-mini"><div class="progress-mini-fill" id="tProgressFill"></div></div>
+            <span id="tProgressPct" class="pct">0%</span>
+          </div>
+          <ul id="tChecklist" class="checklist"></ul>
+          <form id="addChecklistForm" class="add-check">
+            <input type="text" id="newCheckItem" placeholder="Add a to-do and press Enter" />
+          </form>
+        </div>
+
+        <label class="notes-label">Notes
+          <textarea id="tNotes" rows="5" placeholder="Where did you leave off?"></textarea>
+        </label>
+      </div>
+
+      <div class="modal-foot">
+        <button class="ghost-btn danger" id="deleteTrackBtn">Delete track</button>
+        <div class="spacer"></div>
+        <button class="ghost-btn" id="cancelTrackBtn">Cancel</button>
+        <button class="primary-btn" id="saveTrackBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stages editor modal -->
+  <div class="modal-overlay" id="stagesModal" hidden>
+    <div class="modal narrow">
+      <div class="modal-head">
+        <h2>Edit stages</h2>
+        <button class="icon-btn" id="closeStagesModal" title="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="hint">Your roadmap — rename, reorder or remove stages to match how you work.</p>
+        <ul id="stageEditList" class="stage-edit-list"></ul>
+        <form id="addStageForm" class="add-check">
+          <input type="text" id="newStageName" placeholder="Add a stage and press Enter" />
+        </form>
+      </div>
+      <div class="modal-foot">
+        <div class="spacer"></div>
+        <button class="primary-btn" id="doneStagesBtn">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
