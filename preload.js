@@ -4,5 +4,11 @@ contextBridge.exposeInMainWorld('api', {
   load: () => ipcRenderer.invoke('data:load'),
   save: (data) => ipcRenderer.invoke('data:save', data),
   exportData: (data) => ipcRenderer.invoke('data:export', data),
-  importData: () => ipcRenderer.invoke('data:import')
+  importData: () => ipcRenderer.invoke('data:import'),
+
+  chooseFolder: () => ipcRenderer.invoke('scan:chooseFolder'),
+  scan: (folders) => ipcRenderer.invoke('scan:run', folders),
+  openPath: (p) => ipcRenderer.invoke('shell:openPath', p),
+  reveal: (p) => ipcRenderer.invoke('shell:reveal', p),
+  exists: (p) => ipcRenderer.invoke('fs:exists', p)
 });

@@ -41,6 +41,7 @@
           <span class="scene-stats" id="sceneStats"></span>
         </div>
         <div class="topbar-right">
+          <button class="ghost-btn" id="projectsBtn">Projects folder<span class="badge" id="inboxBadge" hidden>0</span></button>
           <button class="ghost-btn" id="editStagesBtn">Edit stages</button>
           <button class="ghost-btn" id="renameSceneBtn">Rename scene</button>
           <button class="ghost-btn danger" id="deleteSceneBtn">Delete scene</button>
@@ -69,6 +70,8 @@
             <select id="tStage"></select>
           </label>
         </div>
+
+        <div id="tProjectRow" class="project-row" hidden></div>
 
         <div class="checklist-block">
           <div class="checklist-head">
@@ -113,6 +116,39 @@
       <div class="modal-foot">
         <div class="spacer"></div>
         <button class="primary-btn" id="doneStagesBtn">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Projects folder / Inbox modal -->
+  <div class="modal-overlay" id="projectsModal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Projects folder</h2>
+        <button class="icon-btn" id="closeProjectsModal" title="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="hint">Point this scene at the folder(s) where you keep your projects. Track Manager reads the project names — it never moves or changes your files.</p>
+
+        <div class="folders-head">
+          <span>Watched folders</span>
+          <button class="ghost-btn small" id="addFolderBtn">+ Add folder</button>
+        </div>
+        <ul id="folderList" class="folder-list"></ul>
+
+        <div class="inbox-head">
+          <span>Detected projects <span id="inboxCount" class="pct"></span></span>
+          <div class="inbox-actions">
+            <button class="ghost-btn small" id="rescanBtn">Rescan</button>
+            <button class="primary-btn small" id="addAllBtn">Add all</button>
+          </div>
+        </div>
+        <ul id="inboxList" class="inbox-list"></ul>
+        <p id="inboxEmpty" class="hint" hidden>No new projects found. Add a folder, then Rescan.</p>
+      </div>
+      <div class="modal-foot">
+        <div class="spacer"></div>
+        <button class="primary-btn" id="doneProjectsBtn">Done</button>
       </div>
     </div>
   </div>
