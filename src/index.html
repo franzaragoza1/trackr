@@ -28,6 +28,7 @@
           Accent
           <input type="color" id="accentPicker" value="#5b8cff" />
         </label>
+        <button class="ghost-btn" id="themeBtn">Theme…</button>
         <button class="ghost-btn" id="exportBtn">Export backup</button>
         <button class="ghost-btn" id="importBtn">Import backup</button>
       </div>
@@ -41,6 +42,7 @@
           <span class="scene-stats" id="sceneStats"></span>
         </div>
         <div class="topbar-right">
+          <button class="ghost-btn" id="insightsBtn">Insights</button>
           <button class="ghost-btn" id="projectsBtn">Projects folder<span class="badge" id="inboxBadge" hidden>0</span></button>
           <button class="ghost-btn" id="editStagesBtn">Edit stages</button>
           <button class="ghost-btn" id="renameSceneBtn">Rename scene</button>
@@ -187,6 +189,73 @@
       <div class="modal-foot">
         <div class="spacer"></div>
         <button class="primary-btn" id="doneProjectsBtn">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme modal -->
+  <div class="modal-overlay" id="themeModal" hidden>
+    <div class="modal narrow">
+      <div class="modal-head">
+        <h2>Theme</h2>
+        <button class="icon-btn" id="closeThemeModal" title="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="theme-field">
+          <span>Mode</span>
+          <div class="seg" id="themeMode">
+            <button data-mode="dark" type="button">Dark</button>
+            <button data-mode="light" type="button">Light</button>
+          </div>
+        </div>
+
+        <div class="theme-field">
+          <span>Accent</span>
+          <input type="color" id="themeAccent" />
+        </div>
+
+        <div class="theme-field">
+          <span>Background</span>
+          <div class="seg" id="themeBgType">
+            <button data-bg="solid" type="button">Solid</button>
+            <button data-bg="gradient" type="button">Gradient</button>
+            <button data-bg="image" type="button">Image</button>
+          </div>
+        </div>
+
+        <div class="theme-bg-controls" id="bgSolidCtl" hidden>
+          <label>Color <input type="color" id="bgColor1" /></label>
+        </div>
+        <div class="theme-bg-controls" id="bgGradientCtl" hidden>
+          <label>From <input type="color" id="bgGradFrom" /></label>
+          <label>To <input type="color" id="bgGradTo" /></label>
+          <label>Angle <input type="range" id="bgGradAngle" min="0" max="360" /></label>
+        </div>
+        <div class="theme-bg-controls" id="bgImageCtl" hidden>
+          <button class="ghost-btn small" id="bgImagePick" type="button">Choose image…</button>
+          <button class="ghost-btn small danger" id="bgImageClear" type="button">Clear</button>
+          <span class="hint tiny" id="bgImageName"></span>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="ghost-btn danger" id="themeResetBtn">Reset</button>
+        <div class="spacer"></div>
+        <button class="primary-btn" id="doneThemeBtn">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Insights modal -->
+  <div class="modal-overlay" id="insightsModal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Insights — <span id="insightsScene"></span></h2>
+        <button class="icon-btn" id="closeInsightsModal" title="Close">×</button>
+      </div>
+      <div class="modal-body" id="insightsBody"></div>
+      <div class="modal-foot">
+        <div class="spacer"></div>
+        <button class="primary-btn" id="doneInsightsBtn">Done</button>
       </div>
     </div>
   </div>

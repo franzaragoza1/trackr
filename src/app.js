@@ -41,9 +41,8 @@ async function boot() {
   const loaded = await window.api.load();
   state = loaded && loaded.scenes && loaded.scenes.length ? loaded : seedData();
   migrate(state);
-  if (!state.accent) state.accent = '#5b8cff';
-  applyAccent(state.accent);
-  document.getElementById('accentPicker').value = state.accent;
+  applyTheme(state.theme);
+  document.getElementById('accentPicker').value = state.theme.accent;
   render();
   refreshInbox();
 }
@@ -51,6 +50,9 @@ async function boot() {
 /* Normalize older data so newer fields always exist. Grows as features land. */
 function migrate(st) {
   if (!Array.isArray(st.checklistTemplates)) st.checklistTemplates = [];
+  if (!st.theme) {
+    st.theme = { accent: st.accent || '#5b8cff', mode: 'dark', bgType: 'solid', bgColor: '', bgColor2: '#23262f', bgAngle: 135, bgImagePath: '' };
+  }
   (st.scenes || []).forEach((scene) => {
     if (!Array.isArray(scene.scanFolders)) scene.scanFolders = [];
     (scene.tracks || []).forEach((track) => {
@@ -89,6 +91,26 @@ function moveTrackToStage(track, stageId, ts = Date.now()) {
 
 function applyAccent(color) {
   document.documentElement.style.setProperty('--accent', color);
+}
+
+/* Apply the full theme: mode, accent and background. */
+function applyTheme(t) {
+  if (!t) return;
+  const root = document.documentElement;
+  root.setAttribute('data-theme', t.mode === 'light' ? 'light' : 'dark');
+  applyAccent(t.accent || '#5b8cff');
+
+  const main = document.querySelector('.main');
+  if (!main) return;
+  let bg = '';
+  if (t.bgType === 'gradient') {
+    bg = `linear-gradient(${t.bgAngle || 135}deg, ${t.bgColor || '#14151a'}, ${t.bgColor2 || '#23262f'})`;
+  } else if (t.bgType === 'image' && t.bgImagePath) {
+    bg = `center / cover no-repeat url("${window.api.mediaUrl(t.bgImagePath)}")`;
+  } else if (t.bgType === 'solid' && t.bgColor) {
+    bg = t.bgColor;
+  }
+  main.style.background = bg; // empty string clears to default
 }
 
 function toast(msg) {
@@ -647,9 +669,9 @@ async function importBackup() {
   if (!res.ok) return res.error && toast('Import failed');
   if (!res.data || !res.data.scenes) return toast('Not a valid backup file');
   state = res.data;
-  if (!state.accent) state.accent = '#5b8cff';
-  applyAccent(state.accent);
-  document.getElementById('accentPicker').value = state.accent;
+  migrate(state);
+  applyTheme(state.theme);
+  document.getElementById('accentPicker').value = state.theme.accent;
   save();
   render();
   toast('Backup imported');
@@ -914,6 +936,219 @@ async function renderProjectRow(track) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Theme builder
+ * ------------------------------------------------------------------ */
+const DEFAULT_THEME = { accent: '#5b8cff', mode: 'dark', bgType: 'solid', bgColor: '', bgColor2: '#23262f', bgAngle: 135, bgImagePath: '' };
+
+function openThemeModal() {
+  syncThemeControls();
+  document.getElementById('themeModal').hidden = false;
+}
+
+// Reflect state.theme into the modal controls and visible bg-control group.
+function syncThemeControls() {
+  const t = state.theme;
+  document.querySelectorAll('#themeMode button').forEach((b) => b.classList.toggle('active', b.dataset.mode === (t.mode || 'dark')));
+  document.querySelectorAll('#themeBgType button').forEach((b) => b.classList.toggle('active', b.dataset.bg === (t.bgType || 'solid')));
+  document.getElementById('themeAccent').value = t.accent || '#5b8cff';
+  document.getElementById('bgColor1').value = t.bgColor || '#14151a';
+  document.getElementById('bgGradFrom').value = t.bgColor || '#14151a';
+  document.getElementById('bgGradTo').value = t.bgColor2 || '#23262f';
+  document.getElementById('bgGradAngle').value = t.bgAngle || 135;
+  document.getElementById('bgImageName').textContent = t.bgImagePath ? t.bgImagePath.split(/[\\/]/).pop() : '';
+
+  document.getElementById('bgSolidCtl').hidden = t.bgType !== 'solid';
+  document.getElementById('bgGradientCtl').hidden = t.bgType !== 'gradient';
+  document.getElementById('bgImageCtl').hidden = t.bgType !== 'image';
+}
+
+function updateTheme(patch) {
+  Object.assign(state.theme, patch);
+  applyTheme(state.theme);
+  syncThemeControls();
+  document.getElementById('accentPicker').value = state.theme.accent;
+  save();
+}
+
+function wireThemeModal() {
+  document.getElementById('themeBtn').addEventListener('click', openThemeModal);
+  document.getElementById('closeThemeModal').addEventListener('click', () => (document.getElementById('themeModal').hidden = true));
+  document.getElementById('doneThemeBtn').addEventListener('click', () => (document.getElementById('themeModal').hidden = true));
+
+  document.querySelectorAll('#themeMode button').forEach((b) =>
+    b.addEventListener('click', () => updateTheme({ mode: b.dataset.mode }))
+  );
+  document.querySelectorAll('#themeBgType button').forEach((b) =>
+    b.addEventListener('click', () => updateTheme({ bgType: b.dataset.bg }))
+  );
+
+  document.getElementById('themeAccent').addEventListener('input', (e) => updateTheme({ accent: e.target.value }));
+  document.getElementById('bgColor1').addEventListener('input', (e) => updateTheme({ bgColor: e.target.value }));
+  document.getElementById('bgGradFrom').addEventListener('input', (e) => updateTheme({ bgColor: e.target.value }));
+  document.getElementById('bgGradTo').addEventListener('input', (e) => updateTheme({ bgColor2: e.target.value }));
+  document.getElementById('bgGradAngle').addEventListener('input', (e) => updateTheme({ bgAngle: parseInt(e.target.value, 10) }));
+
+  document.getElementById('bgImagePick').addEventListener('click', async () => {
+    const res = await window.api.pickFiles();
+    if (res.ok && res.files.length) updateTheme({ bgImagePath: res.files[0].path });
+  });
+  document.getElementById('bgImageClear').addEventListener('click', () => updateTheme({ bgImagePath: '' }));
+
+  document.getElementById('themeResetBtn').addEventListener('click', () => {
+    state.theme = { ...DEFAULT_THEME };
+    applyTheme(state.theme);
+    syncThemeControls();
+    document.getElementById('accentPicker').value = state.theme.accent;
+    save();
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Insights / analytics
+ * ------------------------------------------------------------------ */
+const DAY = 86400000;
+const STALL_MS = 21 * DAY; // "stuck" if untouched for 3+ weeks and not finished
+
+function humanizeMs(ms) {
+  if (ms < 0) ms = 0;
+  const days = ms / DAY;
+  if (days >= 1) return Math.round(days) + 'd';
+  const hours = ms / 3600000;
+  if (hours >= 1) return Math.round(hours) + 'h';
+  const mins = Math.round(ms / 60000);
+  return mins + 'm';
+}
+
+function computeInsights(scene) {
+  const now = Date.now();
+  const stages = scene.stages;
+  const finalId = stages.length ? stages[stages.length - 1].id : null;
+  const dwell = {}; // stageId -> { total, samples }
+  stages.forEach((s) => (dwell[s.id] = { total: 0, samples: 0 }));
+
+  const finished = [];
+  const stalled = [];
+
+  scene.tracks.forEach((track) => {
+    const hist = (track.stageHistory || []).slice().sort((a, b) => a.at - b.at);
+    for (let i = 0; i < hist.length; i++) {
+      const sid = hist[i].stageId;
+      const start = hist[i].at;
+      const end = i + 1 < hist.length ? hist[i + 1].at : now;
+      if (dwell[sid]) {
+        dwell[sid].total += Math.max(0, end - start);
+        dwell[sid].samples++;
+      }
+    }
+    const isFinished = track.stageId === finalId;
+    if (isFinished) {
+      finished.push(track);
+    } else {
+      const last = hist.length ? hist[hist.length - 1].at : track.updatedAt || track.createdAt || now;
+      const idle = now - last;
+      if (idle >= STALL_MS) stalled.push({ track, idle });
+    }
+  });
+
+  const perStage = stages.map((s) => ({
+    id: s.id,
+    name: s.name,
+    avg: dwell[s.id].samples ? dwell[s.id].total / dwell[s.id].samples : 0,
+    samples: dwell[s.id].samples
+  }));
+
+  // Bottleneck = non-final stage with the highest average dwell.
+  let bottleneck = null;
+  perStage.forEach((s) => {
+    if (s.id === finalId) return;
+    if (s.samples && (!bottleneck || s.avg > bottleneck.avg)) bottleneck = s;
+  });
+
+  const total = scene.tracks.length;
+  const finishedN = finished.length;
+  const ratio = finishedN ? total / finishedN : 0;
+
+  stalled.sort((a, b) => b.idle - a.idle);
+
+  return { total, finishedN, inProgress: total - finishedN, ratio, perStage, bottleneck, finished, stalled, finalId };
+}
+
+function openInsightsModal() {
+  const scene = activeScene();
+  document.getElementById('insightsScene').textContent = scene.name;
+  renderInsights(computeInsights(scene));
+  document.getElementById('insightsModal').hidden = false;
+}
+
+function renderInsights(ins) {
+  const body = document.getElementById('insightsBody');
+  if (!ins.total) {
+    body.innerHTML = '<p class="hint">No tracks yet. Add some and your habits will show up here.</p>';
+    return;
+  }
+
+  const maxAvg = Math.max(1, ...ins.perStage.map((s) => s.avg));
+  const bars = ins.perStage
+    .map((s) => {
+      const w = s.avg ? Math.max(3, Math.round((s.avg / maxAvg) * 100)) : 0;
+      const isNeck = ins.bottleneck && s.id === ins.bottleneck.id;
+      return `
+        <div class="stat-bar-row">
+          <span class="stat-bar-name">${escapeHtml(s.name)}${isNeck ? ' <span class="neck-tag">bottleneck</span>' : ''}</span>
+          <div class="stat-bar"><div class="stat-bar-fill${isNeck ? ' neck' : ''}" style="width:${w}%"></div></div>
+          <span class="stat-bar-val">${s.samples ? humanizeMs(s.avg) : '—'}</span>
+        </div>`;
+    })
+    .join('');
+
+  const stalledList = ins.stalled.length
+    ? ins.stalled
+        .slice(0, 12)
+        .map(
+          (x) =>
+            `<li class="insight-track" data-id="${x.track.id}"><span>${escapeHtml(x.track.title)}</span><span class="insight-idle">${humanizeMs(x.idle)} idle</span></li>`
+        )
+        .join('')
+    : '<li class="hint">Nothing stuck — nice.</li>';
+
+  const finishedList = ins.finished.length
+    ? ins.finished
+        .slice()
+        .reverse()
+        .slice(0, 20)
+        .map((t) => `<li class="insight-track" data-id="${t.id}"><span>${escapeHtml(t.title)}</span></li>`)
+        .join('')
+    : '<li class="hint">Nothing finished yet — the first one is coming.</li>';
+
+  body.innerHTML = `
+    <div class="stat-tiles">
+      <div class="stat-tile"><div class="stat-num">${ins.total}</div><div class="stat-lbl">tracks</div></div>
+      <div class="stat-tile"><div class="stat-num">${ins.finishedN}</div><div class="stat-lbl">finished</div></div>
+      <div class="stat-tile"><div class="stat-num">${ins.inProgress}</div><div class="stat-lbl">in progress</div></div>
+      <div class="stat-tile"><div class="stat-num">${ins.ratio ? '1 : ' + ins.ratio.toFixed(1) : '—'}</div><div class="stat-lbl">finished : started</div></div>
+    </div>
+
+    ${ins.bottleneck ? `<p class="insight-note">Your tracks stall most at <strong>${escapeHtml(ins.bottleneck.name)}</strong> — on average <strong>${humanizeMs(ins.bottleneck.avg)}</strong> there.</p>` : ''}
+
+    <div class="section-head" style="margin-top:6px;">Average time per stage</div>
+    <div class="stat-bars">${bars}</div>
+
+    <div class="section-head">Stuck tracks <span class="hint tiny">(3+ weeks untouched)</span></div>
+    <ul class="insight-list">${stalledList}</ul>
+
+    <div class="section-head">Finished</div>
+    <ul class="insight-list wall">${finishedList}</ul>`;
+
+  // Click a track name to open it.
+  body.querySelectorAll('.insight-track').forEach((li) =>
+    li.addEventListener('click', () => {
+      document.getElementById('insightsModal').hidden = true;
+      openTrackModal(li.dataset.id);
+    })
+  );
+}
+
+/* ------------------------------------------------------------------ *
  * Wire up events
  * ------------------------------------------------------------------ */
 function wire() {
@@ -979,6 +1214,10 @@ function wire() {
   document.getElementById('renameSceneBtn').addEventListener('click', renameScene);
   document.getElementById('deleteSceneBtn').addEventListener('click', deleteScene);
 
+  document.getElementById('insightsBtn').addEventListener('click', openInsightsModal);
+  document.getElementById('closeInsightsModal').addEventListener('click', () => (document.getElementById('insightsModal').hidden = true));
+  document.getElementById('doneInsightsBtn').addEventListener('click', () => (document.getElementById('insightsModal').hidden = true));
+
   document.getElementById('projectsBtn').addEventListener('click', openProjectsModal);
   document.getElementById('closeProjectsModal').addEventListener('click', () => (document.getElementById('projectsModal').hidden = true));
   document.getElementById('doneProjectsBtn').addEventListener('click', () => (document.getElementById('projectsModal').hidden = true));
@@ -990,10 +1229,12 @@ function wire() {
   document.getElementById('importBtn').addEventListener('click', importBackup);
 
   document.getElementById('accentPicker').addEventListener('input', (e) => {
-    state.accent = e.target.value;
-    applyAccent(state.accent);
+    state.theme.accent = e.target.value;
+    applyTheme(state.theme);
     save();
   });
+
+  wireThemeModal();
 
   // close modals on overlay click / Esc
   document.querySelectorAll('.modal-overlay').forEach((ov) =>
