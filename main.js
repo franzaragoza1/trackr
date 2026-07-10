@@ -210,6 +210,68 @@ ipcMain.handle('fs:exists', (_e, p) => {
   }
 });
 
+// ---- AI assistant (OpenRouter) ----
+// Key + model live in userData, never in the repo and never sent to the renderer.
+const AI_FILE = () => path.join(app.getPath('userData'), 'ai-config.json');
+const DEFAULT_MODEL = 'anthropic/claude-3.5-sonnet';
+
+function readAiConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(AI_FILE(), 'utf-8'));
+  } catch (e) {
+    return { key: '', model: DEFAULT_MODEL };
+  }
+}
+function writeAiConfig(c) {
+  fs.writeFileSync(AI_FILE(), JSON.stringify(c, null, 2), 'utf-8');
+}
+
+ipcMain.handle('ai:getConfig', () => {
+  const c = readAiConfig();
+  return { hasKey: !!c.key, model: c.model || DEFAULT_MODEL };
+});
+
+ipcMain.handle('ai:setConfig', (_e, { key, model }) => {
+  const c = readAiConfig();
+  if (typeof key === 'string' && key.trim()) c.key = key.trim();
+  if (typeof model === 'string' && model.trim()) c.model = model.trim();
+  writeAiConfig(c);
+  return { ok: true };
+});
+
+ipcMain.handle('ai:clearKey', () => {
+  const c = readAiConfig();
+  c.key = '';
+  writeAiConfig(c);
+  return { ok: true };
+});
+
+ipcMain.handle('ai:chat', async (_e, { messages }) => {
+  const c = readAiConfig();
+  if (!c.key) return { ok: false, error: 'No API key set' };
+  try {
+    const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + c.key,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://track-manager.app',
+        'X-Title': 'Track Manager'
+      },
+      body: JSON.stringify({ model: c.model || DEFAULT_MODEL, messages })
+    });
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => '');
+      return { ok: false, error: `OpenRouter ${resp.status}: ${txt.slice(0, 300)}` };
+    }
+    const data = await resp.json();
+    const content = data && data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '';
+    return { ok: true, content };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
 ipcMain.handle('pick:files', async () => {
   const win = BrowserWindow.getFocusedWindow();
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {

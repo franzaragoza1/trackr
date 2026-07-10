@@ -1149,6 +1149,161 @@ function renderInsights(ins) {
 }
 
 /* ------------------------------------------------------------------ *
+ * AI assistant (OpenRouter)
+ * ------------------------------------------------------------------ */
+let aiHistory = []; // {role, content} for the current chat session
+
+// Build a compact, text-only snapshot of the active scene for the model.
+function aiContext() {
+  const scene = activeScene();
+  const stageName = (id) => (scene.stages.find((s) => s.id === id) || {}).name || '?';
+  const now = Date.now();
+  const lines = scene.tracks
+    .map((t) => {
+      const pct = progressOf(t);
+      const todos = (t.checklist || []).filter((i) => !i.done).length;
+      const openFixes = (t.fixes || []).filter((f) => !f.done).length;
+      const last = (t.stageHistory || []).length ? t.stageHistory[t.stageHistory.length - 1].at : t.updatedAt || now;
+      const idleDays = Math.round((now - last) / 86400000);
+      return `- "${t.title}" | ${stageName(t.stageId)} | ${pct}% | ${todos} to-dos${openFixes ? ` | ${openFixes} fixes` : ''} | idle ${idleDays}d`;
+    })
+    .join('\n');
+  return (
+    `You are the assistant built into "Track Manager", a music producer's project manager. ` +
+    `Be concise, practical and encouraging. Help the producer decide what to work on, unblock stuck tracks and stay organized.\n\n` +
+    `Workspace: "${scene.name}". Stages: ${scene.stages.map((s) => s.name).join(' → ')}.\n` +
+    `Tracks (${scene.tracks.length}):\n${lines || '(none yet)'}`
+  );
+}
+
+function aiRenderText(text) {
+  return escapeHtml(text).replace(/\n/g, '<br>');
+}
+
+function aiAppendMessage(role, html) {
+  const wrap = document.getElementById('aiMessages');
+  const div = document.createElement('div');
+  div.className = 'ai-msg ai-' + role;
+  div.innerHTML = `<div class="ai-bubble">${html}</div>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+  return div;
+}
+
+async function openAiModal() {
+  document.getElementById('aiModal').hidden = false;
+  const cfg = await window.api.aiGetConfig();
+  document.getElementById('aiModel').value = cfg.model || '';
+  showAiSettings(!cfg.hasKey);
+  if (cfg.hasKey && !aiHistory.length) {
+    document.getElementById('aiMessages').innerHTML = '';
+    aiAppendMessage('assistant', aiRenderText("Hey! Ask me what to finish next, why a track keeps stalling, or to plan out a release. I can see your current board."));
+  }
+  if (cfg.hasKey) document.getElementById('aiInput').focus();
+}
+
+function showAiSettings(show) {
+  document.getElementById('aiSettings').hidden = !show;
+  document.getElementById('aiChatArea').hidden = show;
+  document.querySelector('.ai-foot').style.display = show ? 'none' : '';
+}
+
+async function sendAiMessage(text) {
+  aiAppendMessage('user', aiRenderText(text));
+  aiHistory.push({ role: 'user', content: text });
+  const pending = aiAppendMessage('assistant', '<span class="ai-typing">thinking…</span>');
+  const messages = [{ role: 'system', content: aiContext() }, ...aiHistory];
+  const res = await window.api.aiChat(messages);
+  const bubble = pending.querySelector('.ai-bubble');
+  if (res.ok) {
+    bubble.innerHTML = aiRenderText(res.content);
+    aiHistory.push({ role: 'assistant', content: res.content });
+  } else {
+    bubble.innerHTML = `<span class="ai-error">⚠ ${escapeHtml(res.error || 'AI request failed')}</span>`;
+    if (/no api key/i.test(res.error || '')) showAiSettings(true);
+  }
+  document.getElementById('aiMessages').scrollTop = document.getElementById('aiMessages').scrollHeight;
+}
+
+async function saveAiConfig() {
+  const key = document.getElementById('aiKey').value;
+  const model = document.getElementById('aiModel').value;
+  await window.api.aiSetConfig({ key, model });
+  document.getElementById('aiKey').value = '';
+  const cfg = await window.api.aiGetConfig();
+  if (cfg.hasKey) {
+    showAiSettings(false);
+    if (!aiHistory.length) {
+      document.getElementById('aiMessages').innerHTML = '';
+      aiAppendMessage('assistant', aiRenderText('All set. Ask me anything about your tracks.'));
+    }
+    toast('Assistant ready');
+  } else {
+    toast('Enter a valid key');
+  }
+}
+
+// Generate checklist items for the track currently open in the modal.
+async function aiSuggestChecklist() {
+  const cfg = await window.api.aiGetConfig();
+  if (!cfg.hasKey) {
+    openAiModal();
+    showAiSettings(true);
+    return toast('Set your OpenRouter key first');
+  }
+  const title = document.getElementById('tTitle').value.trim() || 'this track';
+  const stageSel = document.getElementById('tStage');
+  const stageName = stageSel.options[stageSel.selectedIndex] ? stageSel.options[stageSel.selectedIndex].text : '';
+  const btn = document.getElementById('aiChecklistBtn');
+  const prev = btn.textContent;
+  btn.textContent = '✨ …';
+  btn.disabled = true;
+  const messages = [
+    { role: 'system', content: 'You generate concise music-production checklists. Output ONLY the list, one short actionable item per line, no numbering, no headings, no extra prose.' },
+    { role: 'user', content: `Checklist for the track "${title}" at the "${stageName}" stage. 6-9 items.` }
+  ];
+  const res = await window.api.aiChat(messages);
+  btn.textContent = prev;
+  btn.disabled = false;
+  if (!res.ok) return toast('AI error: ' + res.error);
+  const items = res.content
+    .split('\n')
+    .map((l) => l.replace(/^[-*\d.)\s]+/, '').trim())
+    .filter(Boolean)
+    .slice(0, 15);
+  if (!items.length) return toast('No suggestions came back');
+  items.forEach((text) => modalChecklist.push({ id: uid(), text, done: false }));
+  renderModalChecklist();
+  toast(`Added ${items.length} items`);
+}
+
+function wireAi() {
+  document.getElementById('assistantBtn').addEventListener('click', openAiModal);
+  document.getElementById('closeAiModal').addEventListener('click', () => (document.getElementById('aiModal').hidden = true));
+  document.getElementById('aiSettingsBtn').addEventListener('click', () => {
+    const showing = !document.getElementById('aiSettings').hidden;
+    showAiSettings(!showing);
+  });
+  document.getElementById('aiSaveConfigBtn').addEventListener('click', saveAiConfig);
+  document.getElementById('aiClearKeyBtn').addEventListener('click', async () => {
+    await window.api.aiClearKey();
+    aiHistory = [];
+    document.getElementById('aiMessages').innerHTML = '';
+    showAiSettings(true);
+    toast('Key cleared');
+  });
+  document.getElementById('aiForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('aiInput');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    sendAiMessage(text);
+  });
+  document.getElementById('aiChecklistBtn').addEventListener('click', aiSuggestChecklist);
+}
+
+/* ------------------------------------------------------------------ *
  * Wire up events
  * ------------------------------------------------------------------ */
 function wire() {
@@ -1235,6 +1390,7 @@ function wire() {
   });
 
   wireThemeModal();
+  wireAi();
 
   // close modals on overlay click / Esc
   document.querySelectorAll('.modal-overlay').forEach((ov) =>

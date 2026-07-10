@@ -1,5 +1,13 @@
 # Track Manager — Plan de fases (2026-07-10)
 
+> **ESTADO: Fases 2, 3 y 4 IMPLEMENTADAS y verificadas (2026-07-10).**
+> - ✅ 2.6a stageHistory · ✅ Fase 3 scanner (8 DAWs, agrupación de versiones, Inbox)
+> - ✅ 2.1–2.4 adjuntos+audio inline, fixes con seek, feedback, plantillas
+> - ✅ 2.6b analítica · ✅ 2.5 theme builder · ✅ Fase 4 asistente IA (OpenRouter)
+> - Verificado: tests de agrupación (11/11), scanner, analítica (7/7), round-trip de
+>   media URL, parseo de checklist IA; arranque sin errores tras cada fase.
+> - Pendiente opcional: watch en vivo de carpetas, streaming IA, orden por "sin tocar".
+
 Base actual: **v0.1 MVP** commiteada (`d24606c`) — Kanban, etapas personalizables,
 checklists con %, escenas, backup export/import, acento configurable.
 

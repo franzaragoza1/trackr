@@ -13,6 +13,11 @@ contextBridge.exposeInMainWorld('api', {
   exists: (p) => ipcRenderer.invoke('fs:exists', p),
   pickFiles: () => ipcRenderer.invoke('pick:files'),
 
+  aiGetConfig: () => ipcRenderer.invoke('ai:getConfig'),
+  aiSetConfig: (cfg) => ipcRenderer.invoke('ai:setConfig', cfg),
+  aiClearKey: () => ipcRenderer.invoke('ai:clearKey'),
+  aiChat: (messages) => ipcRenderer.invoke('ai:chat', { messages }),
+
   // Build a streamable URL for a local media file.
   mediaUrl: (p) => 'trackmedia://x/' + encodeURIComponent(p)
 });
