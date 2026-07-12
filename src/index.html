@@ -187,6 +187,20 @@
         </div>
         <ul id="inboxList" class="inbox-list"></ul>
         <p id="inboxEmpty" class="hint" hidden>No new projects found. Add a folder, then Rescan.</p>
+
+        <div class="folders-head">
+          <span>Bounces — mixdowns &amp; masters</span>
+          <div class="inbox-actions">
+            <button class="ghost-btn small" id="addMixFolderBtn">+ Mixdowns</button>
+            <button class="ghost-btn small" id="addMasterFolderBtn">+ Masters</button>
+          </div>
+        </div>
+        <p class="hint tiny">Bounces named like the project + <code>MIX1</code>/<code>MIX2</code> (mixdowns) or <code>M1</code>/<code>M2</code> (masters) get attached to the matching track automatically.</p>
+        <ul id="mediaFolderList" class="folder-list"></ul>
+        <div class="inbox-actions" style="margin-top:8px;">
+          <button class="primary-btn small accent-btn" id="linkBouncesBtn" type="button">Link bounces now</button>
+          <span class="hint tiny" id="bouncesResult"></span>
+        </div>
       </div>
       <div class="modal-foot">
         <div class="spacer"></div>

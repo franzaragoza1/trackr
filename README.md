@@ -31,6 +31,10 @@ uploaded anywhere — all data lives on your machine.
   project files, **groups versions** (so `Song`, `Song v2`, `Song Final` collapse to one),
   and lists new ones in an **Inbox** — add them to the board with one click.
 - Open the project in its DAW or reveal it in the file explorer from the track.
+- **Auto‑link bounces** — point the scene at your mixdowns folder and your masters
+  folder. Bounces named like the project plus `MIX1`/`MIX2` (mixdowns) or `M1`/`M2`
+  (masters) attach themselves to the matching track, tagged and playable inline; the
+  latest master becomes the track's primary audio for timestamped fixes.
 
 **Insights**
 - Average time your tracks spend in each stage, your **biggest bottleneck**,

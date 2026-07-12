@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('api', {
 
   chooseFolder: () => ipcRenderer.invoke('scan:chooseFolder'),
   scan: (folders) => ipcRenderer.invoke('scan:run', folders),
+  scanMedia: (folders) => ipcRenderer.invoke('scan:media', folders),
   openPath: (p) => ipcRenderer.invoke('shell:openPath', p),
   reveal: (p) => ipcRenderer.invoke('shell:reveal', p),
   exists: (p) => ipcRenderer.invoke('fs:exists', p),

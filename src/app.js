@@ -55,6 +55,7 @@ function migrate(st) {
   }
   (st.scenes || []).forEach((scene) => {
     if (!Array.isArray(scene.scanFolders)) scene.scanFolders = [];
+    if (!Array.isArray(scene.mediaFolders)) scene.mediaFolders = [];
     (scene.tracks || []).forEach((track) => {
       if (!Array.isArray(track.stageHistory) || !track.stageHistory.length) {
         const at = track.createdAt || Date.now();
@@ -353,6 +354,8 @@ function renderModalChecklist() {
 }
 
 /* ---- Attachments ---- */
+const roleRank = (a) => (a.role === 'master' ? 0 : a.role === 'mixdown' ? 1 : 2);
+
 function renderModalAttachments() {
   const ul = document.getElementById('tAttachments');
   ul.innerHTML = '';
@@ -361,14 +364,23 @@ function renderModalAttachments() {
     ul.innerHTML = '<li class="attach-empty">Nothing attached yet.</li>';
     return;
   }
-  modalAttachments.forEach((att) => {
+
+  // Masters first, then mixdowns, then others; newest first within each.
+  const display = modalAttachments.slice().sort((a, b) => roleRank(a) - roleRank(b) || (b.mtime || 0) - (a.mtime || 0));
+  // Primary audio (drives fix seeking) = latest master, else latest mixdown, else first audio.
+  const firstAudio = display.find((a) => (a.kind || attachKind(a.name)) === 'audio');
+  const primaryPath = firstAudio ? firstAudio.path : null;
+
+  display.forEach((att) => {
     const kind = att.kind || attachKind(att.name);
     const li = document.createElement('li');
     li.className = 'attach-item';
     const isAudio = kind === 'audio';
+    const roleBadge = att.role ? `<span class="role-badge role-${att.role}">${att.role === 'master' ? 'MASTER' : 'MIX'}</span>` : '';
     li.innerHTML = `
       <div class="attach-row">
         <span class="attach-icon">${kind === 'audio' ? '♪' : kind === 'midi' ? '𝅘𝅥' : '⎙'}</span>
+        ${roleBadge}
         <span class="attach-name" title="${escapeHtml(att.path)}">${escapeHtml(att.name)}</span>
         <button class="ghost-btn small attach-reveal" type="button">Show</button>
         <button class="check-del attach-del" type="button" title="Remove">×</button>
@@ -378,7 +390,7 @@ function renderModalAttachments() {
     if (isAudio) {
       const audio = li.querySelector('.attach-audio');
       audio.src = window.api.mediaUrl(att.path);
-      if (!primaryAudioEl) primaryAudioEl = audio; // first audio drives fix seeking
+      if (att.path === primaryPath) primaryAudioEl = audio;
     }
     li.querySelector('.attach-reveal').addEventListener('click', () => window.api.reveal(att.path));
     li.querySelector('.attach-del').addEventListener('click', () => {
@@ -725,6 +737,62 @@ function linkedKeys(scene) {
   return set;
 }
 
+// Trailing tokens on a bounce file name: role words + version numbers.
+// Handles "Sunset MIX2", "Sunset M1", "Sunset master v3", etc.
+const MEDIA_TOKENS = /\s*[([{]?\s*(mixdown|mixes|mix\s?\d*|mastered|master\s?\d*|mstr\s?\d*|md\s?\d*|m\s?\d+|premaster|pre\s?master|bounce|render|wip|final(e)?|def(initivo)?|v\.?\s?\d+|ver\.?\s?\d*|\d{1,3})\s*[)\]}]?\s*$/i;
+
+// Reduce a bounce file name to the project it belongs to.
+function mediaKey(name) {
+  let s = String(name).toLowerCase().trim();
+  s = s.replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(MEDIA_TOKENS, '').trim();
+  } while (s !== prev && s.length > 1);
+  return s || String(name).toLowerCase().trim();
+}
+
+// The key a track is matched against (its project name, or its title).
+function trackMatchKey(track) {
+  return projectKey(track.project && track.project.name ? track.project.name : track.title);
+}
+
+// Scan the mixdown/master folders and attach each bounce to its track by name.
+async function linkBounces(silent) {
+  const scene = activeScene();
+  if (!scene.mediaFolders || !scene.mediaFolders.length) {
+    if (!silent) toast('Add a mixdowns or masters folder first');
+    return { linked: 0, tracks: 0 };
+  }
+  const res = await window.api.scanMedia(scene.mediaFolders);
+  if (!res || !res.ok) return { linked: 0, tracks: 0 };
+
+  const map = new Map();
+  scene.tracks.forEach((t) => {
+    const k = trackMatchKey(t);
+    if (k && !map.has(k)) map.set(k, t);
+  });
+
+  let linked = 0;
+  const touched = new Set();
+  res.files.forEach((f) => {
+    const t = map.get(mediaKey(f.name));
+    if (!t) return;
+    if (!Array.isArray(t.attachments)) t.attachments = [];
+    if (t.attachments.some((a) => a.path === f.path)) return; // already linked
+    t.attachments.push({ id: uid(), name: f.fileName, path: f.path, kind: 'audio', role: f.role, auto: true, mtime: f.mtime });
+    linked++;
+    touched.add(t.id);
+  });
+
+  if (linked) {
+    save();
+    render();
+  }
+  return { linked, tracks: touched.size };
+}
+
 let scanRaw = []; // last raw scan result for the active scene
 let scanBusy = false;
 
@@ -765,9 +833,44 @@ function updateInboxBadge() {
 
 function openProjectsModal() {
   document.getElementById('projectsModal').hidden = false;
+  document.getElementById('bouncesResult').textContent = '';
   renderFolders();
+  renderMediaFolders();
   renderInbox();
   refreshInbox();
+}
+
+function renderMediaFolders() {
+  const scene = activeScene();
+  const ul = document.getElementById('mediaFolderList');
+  ul.innerHTML = '';
+  if (!scene.mediaFolders.length) {
+    ul.innerHTML = '<li class="folder-empty">No bounce folders yet — add your mixdowns and masters folders.</li>';
+    return;
+  }
+  scene.mediaFolders.forEach((mf) => {
+    const li = document.createElement('li');
+    li.className = 'folder-row';
+    li.innerHTML = `<span class="role-badge role-${mf.role}">${mf.role === 'master' ? 'MASTER' : 'MIX'}</span>
+      <span class="folder-path" title="${escapeHtml(mf.path)}">${escapeHtml(mf.path)}</span>
+      <button class="icon-btn" title="Remove">×</button>`;
+    li.querySelector('.icon-btn').addEventListener('click', () => {
+      scene.mediaFolders = scene.mediaFolders.filter((x) => x.id !== mf.id);
+      save();
+      renderMediaFolders();
+    });
+    ul.appendChild(li);
+  });
+}
+
+async function addMediaFolder(role) {
+  const res = await window.api.chooseFolder();
+  if (!res.ok) return;
+  const scene = activeScene();
+  if (scene.mediaFolders.some((m) => m.path === res.folder && m.role === role)) return;
+  scene.mediaFolders.push({ id: uid(), path: res.folder, role });
+  save();
+  renderMediaFolders();
 }
 
 function renderFolders() {
@@ -840,6 +943,7 @@ function renderInbox() {
       render();
       renderInbox();
       updateInboxBadge();
+      linkBounces(true); // grab any matching bounces for the new track
     });
     list.appendChild(li);
   });
@@ -880,6 +984,7 @@ function addAllProjects() {
   renderInbox();
   updateInboxBadge();
   toast(`Added ${groups.length} track${groups.length > 1 ? 's' : ''}`);
+  linkBounces(true); // grab matching bounces for the new tracks
 }
 
 async function addFolder() {
@@ -1379,6 +1484,18 @@ function wire() {
   document.getElementById('addFolderBtn').addEventListener('click', addFolder);
   document.getElementById('rescanBtn').addEventListener('click', refreshInbox);
   document.getElementById('addAllBtn').addEventListener('click', addAllProjects);
+  document.getElementById('addMixFolderBtn').addEventListener('click', () => addMediaFolder('mixdown'));
+  document.getElementById('addMasterFolderBtn').addEventListener('click', () => addMediaFolder('master'));
+  document.getElementById('linkBouncesBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('linkBouncesBtn');
+    btn.disabled = true;
+    btn.textContent = 'Linking…';
+    const r = await linkBounces(false);
+    btn.disabled = false;
+    btn.textContent = 'Link bounces now';
+    document.getElementById('bouncesResult').textContent =
+      r.linked ? `Linked ${r.linked} bounce${r.linked > 1 ? 's' : ''} to ${r.tracks} track${r.tracks > 1 ? 's' : ''}.` : 'No new matches found.';
+  });
 
   document.getElementById('exportBtn').addEventListener('click', exportBackup);
   document.getElementById('importBtn').addEventListener('click', importBackup);

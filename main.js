@@ -192,6 +192,54 @@ ipcMain.handle('scan:run', (_e, folders) => {
   return { ok: true, projects: acc, truncated: budget.count > MAX_ENTRIES };
 });
 
+// Audio bounce folders (mixdowns / masters) — collect audio files to link to tracks.
+const MEDIA_EXT = new Set(['.wav', '.mp3', '.aiff', '.aif', '.flac', '.m4a', '.aac', '.ogg']);
+
+function scanMediaFolder(root, acc, depth, budget) {
+  if (depth > MAX_DEPTH || budget.count > MAX_ENTRIES) return;
+  let entries;
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch (e) {
+    return;
+  }
+  for (const ent of entries) {
+    if (budget.count > MAX_ENTRIES) return;
+    budget.count++;
+    const name = ent.name;
+    if (name.startsWith('.')) continue;
+    const full = path.join(root, name);
+    if (ent.isDirectory()) {
+      if (SKIP_DIRS.has(name.toLowerCase())) continue;
+      scanMediaFolder(full, acc, depth + 1, budget);
+    } else if (ent.isFile()) {
+      const ext = path.extname(name).toLowerCase();
+      if (MEDIA_EXT.has(ext)) {
+        let mtime = 0;
+        try {
+          mtime = fs.statSync(full).mtimeMs;
+        } catch (e) {
+          /* ignore */
+        }
+        acc.push({ name: name.slice(0, -ext.length), fileName: name, path: full, mtime });
+      }
+    }
+  }
+}
+
+// folders: [{ path, role }] -> audio files each tagged with its folder's role.
+ipcMain.handle('scan:media', (_e, folders) => {
+  const out = [];
+  const budget = { count: 0 };
+  for (const f of folders || []) {
+    if (!f || !f.path || !fs.existsSync(f.path)) continue;
+    const acc = [];
+    scanMediaFolder(f.path, acc, 0, budget);
+    acc.forEach((a) => out.push({ ...a, role: f.role }));
+  }
+  return { ok: true, files: out };
+});
+
 ipcMain.handle('shell:openPath', async (_e, p) => {
   const err = await shell.openPath(p);
   return { ok: !err, error: err || undefined };
