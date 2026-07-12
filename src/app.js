@@ -758,39 +758,40 @@ function trackMatchKey(track) {
   return projectKey(track.project && track.project.name ? track.project.name : track.title);
 }
 
-// Scan the mixdown/master folders and attach each bounce to its track by name.
-async function linkBounces(silent) {
+// Set of every attachment path already linked anywhere in the scene.
+function attachedPaths(scene) {
+  const set = new Set();
+  scene.tracks.forEach((t) => (t.attachments || []).forEach((a) => set.add(a.path)));
+  return set;
+}
+
+// Scan the bounce folders and return only the files not yet linked to any track.
+async function getUnlinkedBounces() {
   const scene = activeScene();
-  if (!scene.mediaFolders || !scene.mediaFolders.length) {
-    if (!silent) toast('Add a mixdowns or masters folder first');
-    return { linked: 0, tracks: 0 };
-  }
+  if (!scene.mediaFolders || !scene.mediaFolders.length) return [];
   const res = await window.api.scanMedia(scene.mediaFolders);
-  if (!res || !res.ok) return { linked: 0, tracks: 0 };
+  if (!res || !res.ok) return [];
+  const linked = attachedPaths(scene);
+  return res.files
+    .filter((f) => !linked.has(f.path))
+    .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+}
 
-  const map = new Map();
-  scene.tracks.forEach((t) => {
-    const k = trackMatchKey(t);
-    if (k && !map.has(k)) map.set(k, t);
-  });
+// Local best-guess track for a bounce (exact normalized-key match only).
+function localGuessTrackId(scene, fileBaseName) {
+  const k = mediaKey(fileBaseName);
+  const t = scene.tracks.find((tr) => trackMatchKey(tr) === k);
+  return t ? t.id : '';
+}
 
-  let linked = 0;
-  const touched = new Set();
-  res.files.forEach((f) => {
-    const t = map.get(mediaKey(f.name));
-    if (!t) return;
-    if (!Array.isArray(t.attachments)) t.attachments = [];
-    if (t.attachments.some((a) => a.path === f.path)) return; // already linked
-    t.attachments.push({ id: uid(), name: f.fileName, path: f.path, kind: 'audio', role: f.role, auto: true, mtime: f.mtime });
-    linked++;
-    touched.add(t.id);
-  });
-
-  if (linked) {
-    save();
-    render();
-  }
-  return { linked, tracks: touched.size };
+// Attach one bounce file to a track.
+function attachBounceToTrack(scene, file, trackId) {
+  const t = scene.tracks.find((tr) => tr.id === trackId);
+  if (!t) return false;
+  if (!Array.isArray(t.attachments)) t.attachments = [];
+  if (t.attachments.some((a) => a.path === file.path)) return false;
+  t.attachments.push({ id: uid(), name: file.fileName, path: file.path, kind: 'audio', role: file.role, mtime: file.mtime });
+  return true;
 }
 
 let scanRaw = []; // last raw scan result for the active scene
@@ -833,7 +834,6 @@ function updateInboxBadge() {
 
 function openProjectsModal() {
   document.getElementById('projectsModal').hidden = false;
-  document.getElementById('bouncesResult').textContent = '';
   renderFolders();
   renderMediaFolders();
   renderInbox();
@@ -943,7 +943,6 @@ function renderInbox() {
       render();
       renderInbox();
       updateInboxBadge();
-      linkBounces(true); // grab any matching bounces for the new track
     });
     list.appendChild(li);
   });
@@ -984,7 +983,6 @@ function addAllProjects() {
   renderInbox();
   updateInboxBadge();
   toast(`Added ${groups.length} track${groups.length > 1 ? 's' : ''}`);
-  linkBounces(true); // grab matching bounces for the new tracks
 }
 
 async function addFolder() {
@@ -1106,6 +1104,170 @@ function wireThemeModal() {
     document.getElementById('accentPicker').value = state.theme.accent;
     save();
   });
+}
+
+/* ------------------------------------------------------------------ *
+ * Bounces review (manual + AI-proposed linking)
+ * ------------------------------------------------------------------ */
+let bounceFiles = []; // unlinked bounces currently under review
+let bounceChoice = {}; // path -> chosen trackId
+
+async function openBouncesModal() {
+  const scene = activeScene();
+  if (!scene.mediaFolders || !scene.mediaFolders.length) {
+    toast('Add a mixdowns or masters folder first');
+    return;
+  }
+  document.getElementById('bouncesModal').hidden = false;
+  document.getElementById('bouncesStatus').textContent = 'Scanning…';
+  document.getElementById('bouncesList').innerHTML = '';
+  bounceFiles = await getUnlinkedBounces();
+  bounceChoice = {};
+  // Seed each choice with a local exact-match guess (still needs confirming).
+  bounceFiles.forEach((f) => (bounceChoice[f.path] = localGuessTrackId(scene, f.name)));
+  document.getElementById('bouncesStatus').textContent = '';
+  renderBouncesList();
+}
+
+function trackOptionsHtml(selectedId) {
+  const scene = activeScene();
+  const opts = ['<option value="">— choose track —</option>'];
+  scene.tracks
+    .slice()
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .forEach((t) => {
+      const label = t.project && t.project.name ? t.project.name : t.title;
+      opts.push(`<option value="${t.id}"${t.id === selectedId ? ' selected' : ''}>${escapeHtml(label)}</option>`);
+    });
+  return opts.join('');
+}
+
+function renderBouncesList() {
+  const list = document.getElementById('bouncesList');
+  const empty = document.getElementById('bouncesEmpty');
+  list.innerHTML = '';
+  if (!bounceFiles.length) {
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+
+  bounceFiles.forEach((f) => {
+    const li = document.createElement('li');
+    li.className = 'bounce-row';
+    const roleBadge = f.role ? `<span class="role-badge role-${f.role}">${f.role === 'master' ? 'MASTER' : 'MIX'}</span>` : '';
+    const guessed = bounceChoice[f.path];
+    li.innerHTML = `
+      <div class="bounce-head">
+        ${roleBadge}
+        <span class="bounce-name" title="${escapeHtml(f.path)}">${escapeHtml(f.fileName)}</span>
+      </div>
+      <audio class="bounce-audio" controls preload="none"></audio>
+      <div class="bounce-actions">
+        <select class="bounce-track">${trackOptionsHtml(guessed)}</select>
+        <button class="primary-btn small link-one" type="button">Link</button>
+      </div>`;
+
+    li.querySelector('.bounce-audio').src = window.api.mediaUrl(f.path);
+    const sel = li.querySelector('.bounce-track');
+    if (guessed) sel.classList.add('has-guess');
+    sel.addEventListener('change', () => {
+      bounceChoice[f.path] = sel.value;
+      sel.classList.toggle('has-guess', !!sel.value);
+    });
+    li.querySelector('.link-one').addEventListener('click', () => {
+      const trackId = sel.value;
+      if (!trackId) return toast('Choose a track first');
+      linkOneBounce(f, trackId);
+    });
+    list.appendChild(li);
+  });
+}
+
+function linkOneBounce(file, trackId) {
+  const scene = activeScene();
+  if (attachBounceToTrack(scene, file, trackId)) {
+    save();
+    render();
+    bounceFiles = bounceFiles.filter((b) => b.path !== file.path);
+    delete bounceChoice[file.path];
+    renderBouncesList();
+    toast('Linked');
+  }
+}
+
+function linkAllChosen() {
+  const scene = activeScene();
+  let n = 0;
+  bounceFiles.slice().forEach((f) => {
+    const trackId = bounceChoice[f.path];
+    if (trackId && attachBounceToTrack(scene, f, trackId)) {
+      n++;
+      bounceFiles = bounceFiles.filter((b) => b.path !== f.path);
+      delete bounceChoice[f.path];
+    }
+  });
+  if (n) {
+    save();
+    render();
+    renderBouncesList();
+  }
+  toast(n ? `Linked ${n} bounce${n > 1 ? 's' : ''}` : 'Nothing chosen to link');
+}
+
+// Ask the model to map each bounce to the best project. Fills the dropdowns.
+async function aiSuggestBounces() {
+  const cfg = await window.api.aiGetConfig();
+  if (!cfg.hasKey) {
+    openAiModal();
+    showAiSettings(true);
+    return toast('Set your OpenRouter key first');
+  }
+  if (!bounceFiles.length) return;
+  const scene = activeScene();
+  const tracks = scene.tracks;
+  if (!tracks.length) return toast('No tracks to match against yet');
+
+  const btn = document.getElementById('aiSuggestBouncesBtn');
+  const prev = btn.textContent;
+  btn.textContent = '✨ Thinking…';
+  btn.disabled = true;
+
+  const projList = tracks.map((t, i) => `${i + 1}. ${t.project && t.project.name ? t.project.name : t.title}`).join('\n');
+  const fileList = bounceFiles.map((f, i) => `${i + 1}. ${f.fileName}`).join('\n');
+  const messages = [
+    {
+      role: 'system',
+      content:
+        'You match exported audio bounce files to music projects by name. Mixdowns often end in MIX1/MIX2, masters in M1/M2, but names vary. ' +
+        'Return ONLY a JSON array, one object per bounce, like [{"b":1,"p":3},{"b":2,"p":0}] where b is the bounce number and p is the project number (0 if none is a confident match). No prose, no code fences.'
+    },
+    { role: 'user', content: `Projects:\n${projList}\n\nBounces:\n${fileList}` }
+  ];
+
+  const res = await window.api.aiChat(messages);
+  btn.textContent = prev;
+  btn.disabled = false;
+  if (!res.ok) return toast('AI error: ' + res.error);
+
+  let mapping;
+  try {
+    const clean = res.content.replace(/```json|```/g, '').trim();
+    mapping = JSON.parse(clean.slice(clean.indexOf('['), clean.lastIndexOf(']') + 1));
+  } catch (e) {
+    return toast('Could not read AI response');
+  }
+  let filled = 0;
+  mapping.forEach((m) => {
+    const f = bounceFiles[m.b - 1];
+    const t = tracks[m.p - 1];
+    if (f && t && m.p > 0) {
+      bounceChoice[f.path] = t.id;
+      filled++;
+    }
+  });
+  renderBouncesList();
+  toast(filled ? `AI proposed ${filled} match${filled > 1 ? 'es' : ''} — review and link` : 'AI found no confident matches');
 }
 
 /* ------------------------------------------------------------------ *
@@ -1486,16 +1648,12 @@ function wire() {
   document.getElementById('addAllBtn').addEventListener('click', addAllProjects);
   document.getElementById('addMixFolderBtn').addEventListener('click', () => addMediaFolder('mixdown'));
   document.getElementById('addMasterFolderBtn').addEventListener('click', () => addMediaFolder('master'));
-  document.getElementById('linkBouncesBtn').addEventListener('click', async () => {
-    const btn = document.getElementById('linkBouncesBtn');
-    btn.disabled = true;
-    btn.textContent = 'Linking…';
-    const r = await linkBounces(false);
-    btn.disabled = false;
-    btn.textContent = 'Link bounces now';
-    document.getElementById('bouncesResult').textContent =
-      r.linked ? `Linked ${r.linked} bounce${r.linked > 1 ? 's' : ''} to ${r.tracks} track${r.tracks > 1 ? 's' : ''}.` : 'No new matches found.';
-  });
+  document.getElementById('reviewBouncesBtn').addEventListener('click', openBouncesModal);
+
+  document.getElementById('closeBouncesModal').addEventListener('click', () => (document.getElementById('bouncesModal').hidden = true));
+  document.getElementById('doneBouncesBtn').addEventListener('click', () => (document.getElementById('bouncesModal').hidden = true));
+  document.getElementById('aiSuggestBouncesBtn').addEventListener('click', aiSuggestBounces);
+  document.getElementById('linkShownBouncesBtn').addEventListener('click', linkAllChosen);
 
   document.getElementById('exportBtn').addEventListener('click', exportBackup);
   document.getElementById('importBtn').addEventListener('click', importBackup);

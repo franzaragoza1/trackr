@@ -330,6 +330,16 @@ textarea { resize: vertical; user-select: text; }
 .theme-bg-controls label { flex-direction: row; align-items: center; gap: 8px; }
 .theme-bg-controls input[type=range] { width: 120px; }
 
+/* ---------- Bounces review ---------- */
+.bounces-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 56vh; overflow-y: auto; }
+.bounce-row { background: var(--bg-3); border: 1px solid var(--border); border-radius: 10px; padding: 11px 12px; }
+.bounce-head { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+.bounce-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+.bounce-audio { width: 100%; height: 34px; margin-bottom: 8px; }
+.bounce-actions { display: flex; gap: 8px; }
+.bounce-track { flex: 1; }
+.bounce-track.has-guess { border-color: var(--accent); }
+
 /* ---------- Insights ---------- */
 .stat-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
 .stat-tile { background: var(--bg-3); border: 1px solid var(--border); border-radius: 10px; padding: 14px 12px; text-align: center; }

@@ -198,13 +198,36 @@
         <p class="hint tiny">Bounces named like the project + <code>MIX1</code>/<code>MIX2</code> (mixdowns) or <code>M1</code>/<code>M2</code> (masters) get attached to the matching track automatically.</p>
         <ul id="mediaFolderList" class="folder-list"></ul>
         <div class="inbox-actions" style="margin-top:8px;">
-          <button class="primary-btn small accent-btn" id="linkBouncesBtn" type="button">Link bounces now</button>
-          <span class="hint tiny" id="bouncesResult"></span>
+          <button class="primary-btn small" id="reviewBouncesBtn" type="button">Review &amp; link bounces…</button>
         </div>
       </div>
       <div class="modal-foot">
         <div class="spacer"></div>
         <button class="primary-btn" id="doneProjectsBtn">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bounces review modal -->
+  <div class="modal-overlay" id="bouncesModal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Link bounces</h2>
+        <button class="icon-btn" id="closeBouncesModal" title="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="hint">Preview each bounce, then choose the track it belongs to and press Link. Let the AI propose matches, or pick manually — nothing is attached until you link it.</p>
+        <div class="inbox-actions" style="margin-bottom:10px;">
+          <button class="ghost-btn small accent-btn" id="aiSuggestBouncesBtn" type="button">✨ Suggest matches (AI)</button>
+          <button class="ghost-btn small" id="linkShownBouncesBtn" type="button">Link all chosen</button>
+          <span class="hint tiny" id="bouncesStatus"></span>
+        </div>
+        <ul id="bouncesList" class="bounces-list"></ul>
+        <p id="bouncesEmpty" class="hint" hidden>No unlinked bounces. Add mixdown/master folders in the Projects window, or everything is already linked.</p>
+      </div>
+      <div class="modal-foot">
+        <div class="spacer"></div>
+        <button class="primary-btn" id="doneBouncesBtn">Done</button>
       </div>
     </div>
   </div>
