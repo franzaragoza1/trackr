@@ -1,142 +1,57 @@
-# Track Manager
+# trackr
 
-A local, private desktop app to move your music tracks from **idea → released**.
-Inspired by TRACKIT, rebuilt cross‑platform (Electron) so it runs on Windows.
+**Move your music tracks from idea to released — without losing track of any of them.**
 
-Every track is a card on a Kanban board. You give it stages that match how *you*
-work, tick off a checklist to see how close each track really is, and keep your
-own music, client work and label releases in separate **scenes**. Nothing is
-uploaded anywhere — all data lives on your machine.
+trackr is a private desktop app (Windows & macOS) for producers, labels and mastering
+engineers. Every track is a card on a board that moves through your own stages. Tick off
+what's left, see how close each track really is, and keep your own music, client work and
+label releases apart. Everything stays on your computer — nothing is uploaded.
+
+Available in English and Spanish.
 
 ## Features
 
-**Board & tracks**
-- **Kanban board** — drag track cards between your own stages.
-- **Custom stages** — rename, reorder and add/remove stages per scene (your roadmap).
-- **Checklists with progress** — each card shows a % done bar as you tick items off.
-- **Reusable checklist templates** — save a list ("Mixdown", "Promo") once and drop it on any track.
-- **Track details** — BPM, key, label/destination and free‑form notes.
-- **Scenes** — separate boards for your music, each client, each label.
+- **Kanban board** — drag each track through your own stages, from first idea to released.
+- **Checklists & progress** — see at a glance what's left before a track is done, and reuse
+  your favourite checklists ("Mixdown", "Promo") on any track.
+- **Scenes** — separate boards for your own music, each client and each label.
+- **Finds your projects** — point trackr at your projects folder and it detects your
+  Ableton / FL Studio / Logic / Cubase / Studio One / Reaper / Pro Tools / Bitwig projects,
+  groups their versions, and lets you add them with one click. Open them in your DAW straight
+  from the card.
+- **Links your bounces** — point it at your mixdowns and masters folders and attach each
+  bounce to the right track (with a hand from the AI, or manually). They play right inside
+  the app.
+- **Ideas, fixes & feedback** — park samples, MIDI or voice notes on a track; mark fixes at
+  the exact second ("lead too quiet at 2:34"); log who said what.
+- **Insights** — where your tracks stall, your finished‑vs‑started ratio, and what's been
+  sitting untouched for weeks.
+- **AI assistant** — ask what to finish next or why tracks keep stalling, and generate
+  checklists in one click. Try it **free**, or use your own key.
+- **Yours & private** — 100% offline, no account. Back everything up to a single file.
 
-**Ideas, fixes & feedback (per track)**
-- **Attachments** — link samples, MIDI or voice notes to a track (files are never moved
-  or copied). Audio plays inline with a real seek bar.
-- **Timestamped fixes** — note "lead too quiet at 2:34"; click the timestamp to jump
-  straight to that spot in the attached audio.
-- **Feedback log** — record who said what; turn any note into a to‑do in one click.
+## Download
 
-**Projects folder scanner**
-- Point a scene at the folder(s) where you keep your projects. Track Manager detects
-  Ableton / FL Studio / Cubase / Studio One / Reaper / Logic / Pro Tools / Bitwig
-  project files, **groups versions** (so `Song`, `Song v2`, `Song Final` collapse to one),
-  and lists new ones in an **Inbox** — add them to the board with one click.
-- Open the project in its DAW or reveal it in the file explorer from the track.
-- **Link bounces (you stay in control)** — point the scene at your mixdowns folder and
-  your masters folder, then open **Review & link bounces**. Each unlinked bounce is
-  listed with an inline player so you can **listen first**. Let the **AI propose** which
-  track each one belongs to, or pick from a dropdown manually — for files whose names
-  don't match, assign them by hand. Nothing is attached until you press **Link**.
-  Once linked, bounces are tagged MIX/MASTER, play inline in the track, and the latest
-  master becomes the track's primary audio for timestamped fixes.
+Grab the latest build from the [**Actions**](../../actions) tab → open the most recent
+successful run → **Artifacts**:
 
-**Insights**
-- Average time your tracks spend in each stage, your **biggest bottleneck**,
-  finished‑vs‑started ratio, **stuck tracks** (untouched 3+ weeks) and a wall of
-  everything you've finished.
+- **Windows** — `trackr-windows-latest` → unzip → run `trackr Setup.exe`
+- **macOS** — `trackr-macos-latest` → unzip → open the `.dmg` and drag trackr to Applications
 
-**AI assistant (optional, via OpenRouter)**
-- A chat that can see your current board — ask "what should I finish this week?" or
-  why tracks keep stalling. Also generates checklists for a track in one click.
-- Bring your own **OpenRouter** key; it's stored only on your machine and is the only
-  thing that ever leaves it (to call OpenRouter). Everything else stays 100% offline.
+The app isn't code‑signed yet, so your system will warn you the first time:
 
-**Theme**
-- Light / dark mode, accent colour, and a solid / gradient / image background.
+- **Windows** — *More info → Run anyway*
+- **macOS** — right‑click the app → **Open** (or Settings → Privacy & Security → *Open anyway*)
 
-**Backup**
-- Export everything to a single `.json` file and import it back (e.g. onto a new
-  machine). No account.
+## The AI assistant
 
-## Run it
+Click **✨ Assistant** and choose:
 
-```bash
-npm install
-npm start
-```
+- **Free** — works instantly, no signup or key.
+- **Your own key** — paste an [OpenRouter](https://openrouter.ai/keys) key for the best models.
 
-On Windows you can also just double‑click **`start.bat`**.
+Only text about your tracks is ever sent to the AI — never your audio.
 
-### Note for this machine
-`npm install` downloads the Electron runtime. If **Windows Defender real‑time
-protection** is on, it can silently delete `electron.exe` from
-`node_modules/electron/dist` as a false positive, which makes launch fail with
-`Cannot read properties of undefined (reading 'whenReady')` or a missing‑exe
-error. If that happens, add this project folder to Defender's exclusions (or
-temporarily disable real‑time protection) and re‑run `npm install`.
+---
 
-`start.bat` also clears the `ELECTRON_RUN_AS_NODE` environment variable, which —
-if set — makes Electron run as plain Node and breaks the app.
-
-## Where is my data?
-
-A single JSON file in Electron's per‑user data directory
-(`%APPDATA%/Track Manager/track-manager-data.json` on Windows). Use
-**Export backup** in the sidebar to make your own copy any time.
-
-The AI assistant's OpenRouter key is stored separately in `ai-config.json` in the
-same folder — never in the project and never in your backup.
-
-## Build installers
-
-**Windows** (from Windows):
-
-```bash
-npm run dist
-```
-
-Produces `dist/trackr Setup <version>.exe` (NSIS, per‑user, no admin needed).
-It's unsigned, so Windows SmartScreen shows a warning the first time → *More info →
-Run anyway*.
-
-> If the build fails extracting `winCodeSign` with a *"Cannot create symbolic link"*
-> error, extract it once by hand (the macOS symlinks it chokes on aren't needed on
-> Windows), then rebuild:
-> `7za x <cache>/winCodeSign/*.7z -o<cache>/winCodeSign/winCodeSign-2.6.0`
-> (cache = `%LOCALAPPDATA%/electron-builder/Cache`).
-
-**macOS** (`.dmg`) can only be built **on macOS** — either run `npx electron-builder
---mac dmg` on a Mac, or use the included **GitHub Actions** workflow
-(`.github/workflows/build.yml`), which builds Windows *and* macOS on every version tag
-(or manually from the Actions tab). Add a repo secret `FREE_OR_KEY` (a 0‑credit
-OpenRouter key) to bake Free mode into the CI builds. Unsigned mac apps are blocked by
-Gatekeeper unless the user right‑clicks → Open, or you sign with an Apple Developer ID.
-
-## Using the AI assistant
-
-Click **✨ Assistant** in the sidebar and pick how to run it:
-
-- **Free** — try it instantly, no signup or key. Runs on a shared free model via
-  OpenRouter (quality model first, with an automatic fallback so it keeps working
-  even when free models are busy). Great for letting other people test the app.
-- **Use my API key** — paste your own [OpenRouter](https://openrouter.ai/keys) key
-  and pick any model (default `anthropic/claude-sonnet-5`) for the best quality.
-
-Then chat, or use **✨ Suggest** inside a track to generate a checklist, or
-**✨ Suggest matches** in the bounce linker. Only text metadata about your tracks is
-ever sent — never your audio files.
-
-### Enabling Free mode for a build you distribute
-
-Free mode needs a bundled OpenRouter key. Copy `free-config.example.json` to
-**`free-config.json`** and put a key there whose **credit limit is set to 0** on
-OpenRouter (so only `:free` models can ever run — if someone extracts it from the app
-it costs you nothing). `free-config.json` is **gitignored** (never committed, so it
-won't be flagged/revoked by public‑repo secret scanners) but **is bundled into
-packaged builds** and travels if you zip the folder. Without it, the app simply hides
-the Free option and everyone uses their own key.
-
-## Roadmap (possible next steps)
-
-- Live folder watching (auto‑refresh the Inbox as you save new projects).
-- Streaming AI responses and proactive nudges ("this track has sat 3 weeks").
-- Sort the board by "longest untouched".
+*Building from source or making your own installers? See [BUILDING.md](BUILDING.md).*
