@@ -259,58 +259,54 @@ ipcMain.handle('fs:exists', (_e, p) => {
 });
 
 // ---- AI assistant (OpenRouter) ----
-// Key + model live in userData, never in the repo and never sent to the renderer.
+// User key + model live in userData, never in the repo and never sent to the renderer.
 const AI_FILE = () => path.join(app.getPath('userData'), 'ai-config.json');
 const DEFAULT_MODEL = 'anthropic/claude-sonnet-5';
+
+// Fallback chain of free OpenRouter models for the "Free" trial mode. Tried in
+// order until one answers, so the app survives a slug being retired or rate-limited.
+const DEFAULT_FREE_MODELS = ['openai/gpt-oss-120b:free', 'openrouter/free'];
+
+// Optional bundled key for Free mode. Lives in free-config.json next to main.js
+// (gitignored, but included in packaged builds). Credit-cap it to 0 on OpenRouter
+// so only :free models ever run — extracting it costs the author nothing.
+const FREE_FILE = path.join(__dirname, 'free-config.json');
+function readFreeConfig() {
+  try {
+    const c = JSON.parse(fs.readFileSync(FREE_FILE, 'utf-8'));
+    if (!c || !c.key) return null;
+    return { key: c.key, models: Array.isArray(c.models) && c.models.length ? c.models : DEFAULT_FREE_MODELS };
+  } catch (e) {
+    return null;
+  }
+}
 
 function readAiConfig() {
   try {
     return JSON.parse(fs.readFileSync(AI_FILE(), 'utf-8'));
   } catch (e) {
-    return { key: '', model: DEFAULT_MODEL };
+    return { key: '', model: DEFAULT_MODEL, mode: '' };
   }
 }
 function writeAiConfig(c) {
   fs.writeFileSync(AI_FILE(), JSON.stringify(c, null, 2), 'utf-8');
 }
 
-ipcMain.handle('ai:getConfig', () => {
-  const c = readAiConfig();
-  return { hasKey: !!c.key, model: c.model || DEFAULT_MODEL };
-});
-
-ipcMain.handle('ai:setConfig', (_e, { key, model }) => {
-  const c = readAiConfig();
-  if (typeof key === 'string' && key.trim()) c.key = key.trim();
-  if (typeof model === 'string' && model.trim()) c.model = model.trim();
-  writeAiConfig(c);
-  return { ok: true };
-});
-
-ipcMain.handle('ai:clearKey', () => {
-  const c = readAiConfig();
-  c.key = '';
-  writeAiConfig(c);
-  return { ok: true };
-});
-
-ipcMain.handle('ai:chat', async (_e, { messages }) => {
-  const c = readAiConfig();
-  if (!c.key) return { ok: false, error: 'No API key set' };
+async function callOpenRouter(key, model, messages) {
   try {
     const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: 'Bearer ' + c.key,
+        Authorization: 'Bearer ' + key,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://track-manager.app',
         'X-Title': 'Track Manager'
       },
-      body: JSON.stringify({ model: c.model || DEFAULT_MODEL, messages })
+      body: JSON.stringify({ model, messages })
     });
     if (!resp.ok) {
       const txt = await resp.text().catch(() => '');
-      return { ok: false, error: `OpenRouter ${resp.status}: ${txt.slice(0, 300)}` };
+      return { ok: false, status: resp.status, error: `OpenRouter ${resp.status}: ${txt.slice(0, 300)}` };
     }
     const data = await resp.json();
     const content = data && data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '';
@@ -318,6 +314,60 @@ ipcMain.handle('ai:chat', async (_e, { messages }) => {
   } catch (e) {
     return { ok: false, error: e.message };
   }
+}
+
+ipcMain.handle('ai:getConfig', () => {
+  const c = readAiConfig();
+  return {
+    hasKey: !!c.key,
+    model: c.model || DEFAULT_MODEL,
+    mode: c.mode || '',
+    freeAvailable: !!readFreeConfig()
+  };
+});
+
+ipcMain.handle('ai:setConfig', (_e, { key, model }) => {
+  const c = readAiConfig();
+  if (typeof key === 'string' && key.trim()) c.key = key.trim();
+  if (typeof model === 'string' && model.trim()) c.model = model.trim();
+  c.mode = 'byok';
+  writeAiConfig(c);
+  return { ok: true };
+});
+
+ipcMain.handle('ai:setMode', (_e, mode) => {
+  const c = readAiConfig();
+  c.mode = mode === 'free' ? 'free' : 'byok';
+  writeAiConfig(c);
+  return { ok: true };
+});
+
+ipcMain.handle('ai:clearKey', () => {
+  const c = readAiConfig();
+  c.key = '';
+  c.mode = '';
+  writeAiConfig(c);
+  return { ok: true };
+});
+
+ipcMain.handle('ai:chat', async (_e, { messages }) => {
+  const c = readAiConfig();
+
+  if (c.mode === 'free') {
+    const free = readFreeConfig();
+    if (!free) return { ok: false, error: 'Free mode is not set up in this build.' };
+    let lastErr = 'no response';
+    for (const model of free.models) {
+      const r = await callOpenRouter(free.key, model, messages);
+      if (r.ok) return r;
+      lastErr = r.error || lastErr;
+      // 429 (rate limit) or 404 (model gone) -> try the next free model
+    }
+    return { ok: false, error: 'All free models are busy right now — try again shortly, or use your own key. (' + lastErr + ')' };
+  }
+
+  if (!c.key) return { ok: false, error: 'No API key set' };
+  return callOpenRouter(c.key, c.model || DEFAULT_MODEL, messages);
 });
 
 ipcMain.handle('pick:files', async () => {

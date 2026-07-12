@@ -1,0 +1,10 @@
+{
+  "_comment": "Rename this file to free-config.json to enable the assistant's Free mode. Put an OpenRouter key here whose credit limit is set to 0 on openrouter.ai so only :free models can run — extracting it from the app then costs nothing. free-config.json is gitignored (kept out of the repo) but IS bundled into packaged builds so end users get Free mode. 'models' is optional; omit it to use the built-in fallback chain.",
+  "key": "sk-or-REPLACE-WITH-A-ZERO-CREDIT-KEY",
+  "models": [
+    "openai/gpt-oss-120b:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "openrouter/free"
+  ]
+}

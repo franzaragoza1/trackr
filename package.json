@@ -15,7 +15,8 @@
     "files": [
       "main.js",
       "preload.js",
-      "src/**/*"
+      "src/**/*",
+      "free-config.json"
     ],
     "win": {
       "target": "nsis"

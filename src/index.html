@@ -58,11 +58,24 @@
     <!-- Assistant: docked panel, part of the layout (not a popup) -->
     <aside class="assistant-panel" id="assistantPanel" hidden>
       <div class="assistant-head">
-        <span class="assistant-title">✨ Assistant</span>
+        <span class="assistant-title">✨ Assistant<span class="ai-mode-badge" id="aiModeBadge" hidden></span></span>
         <div class="assistant-head-actions">
           <button class="icon-btn" id="aiSettingsBtn" title="Settings">⚙</button>
           <button class="icon-btn" id="closeAiPanel" title="Close">×</button>
         </div>
+      </div>
+
+      <div id="aiChooser" class="ai-chooser" hidden>
+        <p class="ai-settings-lead">Try the assistant for free, or connect your own OpenRouter key for the top models.</p>
+        <button class="ai-choice" id="aiUseFreeBtn" type="button">
+          <span class="ai-choice-title">✨ Free</span>
+          <span class="ai-choice-sub">Try it now — no signup, no key. Runs on a shared free model.</span>
+        </button>
+        <button class="ai-choice" id="aiUseKeyBtn" type="button">
+          <span class="ai-choice-title">🔑 Use my API key</span>
+          <span class="ai-choice-sub">Your own OpenRouter key and choice of model — best quality.</span>
+        </button>
+        <p class="ai-hint" id="aiFreeUnavailable" hidden>Free mode isn't set up in this build — use your own key below.</p>
       </div>
 
       <div id="aiSettings" class="ai-settings" hidden>

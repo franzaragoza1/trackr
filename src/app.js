@@ -1218,10 +1218,9 @@ function linkAllChosen() {
 // Ask the model to map each bounce to the best project. Fills the dropdowns.
 async function aiSuggestBounces() {
   const cfg = await window.api.aiGetConfig();
-  if (!cfg.hasKey) {
+  if (!aiReady(cfg)) {
     openAiModal();
-    showAiSettings(true);
-    return toast('Set your OpenRouter key first');
+    return toast('Set up the assistant first');
   }
   if (!bounceFiles.length) return;
   const scene = activeScene();
@@ -1457,17 +1456,50 @@ function aiAppendMessage(role, html) {
   return div;
 }
 
+// Is the assistant usable right now (free mode available, or a user key set)?
+function aiReady(cfg) {
+  return cfg && (cfg.mode === 'free' ? cfg.freeAvailable : cfg.hasKey);
+}
+
+// Three views inside the panel: pick a mode, enter a key, or chat.
+function setAiView(view) {
+  document.getElementById('aiChooser').hidden = view !== 'chooser';
+  document.getElementById('aiSettings').hidden = view !== 'settings';
+  document.getElementById('aiChatArea').hidden = view !== 'chat';
+}
+
+function updateModeBadge(cfg) {
+  const badge = document.getElementById('aiModeBadge');
+  if (aiReady(cfg)) {
+    badge.textContent = cfg.mode === 'free' ? 'Free' : 'Your key';
+    badge.className = 'ai-mode-badge ' + (cfg.mode === 'free' ? 'mode-free' : 'mode-key');
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
+}
+
+function aiGreetIfNeeded() {
+  if (!aiHistory.length) {
+    document.getElementById('aiMessages').innerHTML = '';
+    aiAppendMessage('assistant', aiRenderText('Hey! Ask me what to finish next, why a track keeps stalling, or to plan out a release. I can see your current board.'));
+  }
+}
+
 async function openAiModal() {
   document.getElementById('app').classList.add('assistant-open');
   document.getElementById('assistantPanel').hidden = false;
   const cfg = await window.api.aiGetConfig();
   document.getElementById('aiModel').value = cfg.model || '';
-  showAiSettings(!cfg.hasKey);
-  if (cfg.hasKey && !aiHistory.length) {
-    document.getElementById('aiMessages').innerHTML = '';
-    aiAppendMessage('assistant', aiRenderText("Hey! Ask me what to finish next, why a track keeps stalling, or to plan out a release. I can see your current board."));
+  document.getElementById('aiFreeUnavailable').hidden = cfg.freeAvailable;
+  updateModeBadge(cfg);
+  if (aiReady(cfg)) {
+    setAiView('chat');
+    aiGreetIfNeeded();
+    document.getElementById('aiInput').focus();
+  } else {
+    setAiView('chooser');
   }
-  if (cfg.hasKey) document.getElementById('aiInput').focus();
 }
 
 function closeAssistant() {
@@ -1478,11 +1510,6 @@ function closeAssistant() {
 function toggleAssistant() {
   if (document.getElementById('assistantPanel').hidden) openAiModal();
   else closeAssistant();
-}
-
-function showAiSettings(show) {
-  document.getElementById('aiSettings').hidden = !show;
-  document.getElementById('aiChatArea').hidden = show;
 }
 
 async function sendAiMessage(text) {
@@ -1497,7 +1524,7 @@ async function sendAiMessage(text) {
     aiHistory.push({ role: 'assistant', content: res.content });
   } else {
     bubble.innerHTML = `<span class="ai-error">⚠ ${escapeHtml(res.error || 'AI request failed')}</span>`;
-    if (/no api key/i.test(res.error || '')) showAiSettings(true);
+    if (/no api key/i.test(res.error || '')) setAiView('chooser');
   }
   document.getElementById('aiMessages').scrollTop = document.getElementById('aiMessages').scrollHeight;
 }
@@ -1508,12 +1535,10 @@ async function saveAiConfig() {
   await window.api.aiSetConfig({ key, model });
   document.getElementById('aiKey').value = '';
   const cfg = await window.api.aiGetConfig();
+  updateModeBadge(cfg);
   if (cfg.hasKey) {
-    showAiSettings(false);
-    if (!aiHistory.length) {
-      document.getElementById('aiMessages').innerHTML = '';
-      aiAppendMessage('assistant', aiRenderText('All set. Ask me anything about your tracks.'));
-    }
+    setAiView('chat');
+    aiGreetIfNeeded();
     toast('Assistant ready');
   } else {
     toast('Enter a valid key');
@@ -1523,10 +1548,9 @@ async function saveAiConfig() {
 // Generate checklist items for the track currently open in the modal.
 async function aiSuggestChecklist() {
   const cfg = await window.api.aiGetConfig();
-  if (!cfg.hasKey) {
+  if (!aiReady(cfg)) {
     openAiModal();
-    showAiSettings(true);
-    return toast('Set your OpenRouter key first');
+    return toast('Set up the assistant first');
   }
   const title = document.getElementById('tTitle').value.trim() || 'this track';
   const stageSel = document.getElementById('tStage');
@@ -1557,17 +1581,34 @@ async function aiSuggestChecklist() {
 function wireAi() {
   document.getElementById('assistantBtn').addEventListener('click', toggleAssistant);
   document.getElementById('closeAiPanel').addEventListener('click', closeAssistant);
-  document.getElementById('aiSettingsBtn').addEventListener('click', () => {
-    const showing = !document.getElementById('aiSettings').hidden;
-    showAiSettings(!showing);
+  document.getElementById('aiSettingsBtn').addEventListener('click', async () => {
+    const cfg = await window.api.aiGetConfig();
+    document.getElementById('aiFreeUnavailable').hidden = cfg.freeAvailable;
+    setAiView('chooser'); // gear -> back to Free / key choice
   });
+
+  document.getElementById('aiUseFreeBtn').addEventListener('click', async () => {
+    const cfg = await window.api.aiGetConfig();
+    if (!cfg.freeAvailable) {
+      document.getElementById('aiFreeUnavailable').hidden = false;
+      return;
+    }
+    await window.api.aiSetMode('free');
+    updateModeBadge({ ...cfg, mode: 'free' });
+    setAiView('chat');
+    aiGreetIfNeeded();
+    document.getElementById('aiInput').focus();
+  });
+  document.getElementById('aiUseKeyBtn').addEventListener('click', () => setAiView('settings'));
+
   document.getElementById('aiSaveConfigBtn').addEventListener('click', saveAiConfig);
   document.getElementById('aiClearKeyBtn').addEventListener('click', async () => {
     await window.api.aiClearKey();
     aiHistory = [];
     document.getElementById('aiMessages').innerHTML = '';
-    showAiSettings(true);
-    toast('Key cleared');
+    updateModeBadge(null);
+    setAiView('chooser');
+    toast('Signed out');
   });
   document.getElementById('aiForm').addEventListener('submit', (e) => {
     e.preventDefault();

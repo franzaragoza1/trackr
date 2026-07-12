@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# Bundled Free-mode key — kept out of the repo, but included in packaged builds.
+free-config.json

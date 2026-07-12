@@ -96,13 +96,27 @@ Produces a Windows installer via electron‑builder in `dist/`.
 
 ## Using the AI assistant
 
-1. Get a key at [openrouter.ai/keys](https://openrouter.ai/keys).
-2. Click **✨ Assistant** in the sidebar → the ⚙ settings → paste your key and pick a
-   model (default `anthropic/claude-3.5-sonnet`; use `anthropic/claude-3.5-haiku` or
-   `openai/gpt-4o-mini` for cheaper). Save.
-3. Chat, or use **✨ Suggest** inside a track to generate a checklist.
+Click **✨ Assistant** in the sidebar and pick how to run it:
 
-Only text metadata about your tracks is ever sent — never your audio files.
+- **Free** — try it instantly, no signup or key. Runs on a shared free model via
+  OpenRouter (quality model first, with an automatic fallback so it keeps working
+  even when free models are busy). Great for letting other people test the app.
+- **Use my API key** — paste your own [OpenRouter](https://openrouter.ai/keys) key
+  and pick any model (default `anthropic/claude-sonnet-5`) for the best quality.
+
+Then chat, or use **✨ Suggest** inside a track to generate a checklist, or
+**✨ Suggest matches** in the bounce linker. Only text metadata about your tracks is
+ever sent — never your audio files.
+
+### Enabling Free mode for a build you distribute
+
+Free mode needs a bundled OpenRouter key. Copy `free-config.example.json` to
+**`free-config.json`** and put a key there whose **credit limit is set to 0** on
+OpenRouter (so only `:free` models can ever run — if someone extracts it from the app
+it costs you nothing). `free-config.json` is **gitignored** (never committed, so it
+won't be flagged/revoked by public‑repo secret scanners) but **is bundled into
+packaged builds** and travels if you zip the folder. Without it, the app simply hides
+the Free option and everyone uses their own key.
 
 ## Roadmap (possible next steps)
 

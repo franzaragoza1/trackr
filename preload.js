@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('api', {
 
   aiGetConfig: () => ipcRenderer.invoke('ai:getConfig'),
   aiSetConfig: (cfg) => ipcRenderer.invoke('ai:setConfig', cfg),
+  aiSetMode: (mode) => ipcRenderer.invoke('ai:setMode', mode),
   aiClearKey: () => ipcRenderer.invoke('ai:clearKey'),
   aiChat: (messages) => ipcRenderer.invoke('ai:chat', { messages }),
 
