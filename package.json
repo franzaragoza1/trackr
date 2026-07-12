@@ -10,8 +10,8 @@
     "dist": "electron-builder"
   },
   "build": {
-    "appId": "com.akm.trackmanager",
-    "productName": "Track Manager",
+    "appId": "com.akm.trackr",
+    "productName": "trackr",
     "files": [
       "main.js",
       "preload.js",
@@ -19,7 +19,8 @@
       "free-config.json"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.png"
     }
   },
   "devDependencies": {

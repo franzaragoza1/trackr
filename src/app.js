@@ -22,7 +22,7 @@ function seedData() {
     tracks: [],
     scanFolders: []
   };
-  return { version: 1, accent: '#5b8cff', activeSceneId: scene.id, scenes: [scene] };
+  return { version: 1, accent: '#b6f230', activeSceneId: scene.id, scenes: [scene] };
 }
 
 let state = null;
@@ -51,7 +51,7 @@ async function boot() {
 function migrate(st) {
   if (!Array.isArray(st.checklistTemplates)) st.checklistTemplates = [];
   if (!st.theme) {
-    st.theme = { accent: st.accent || '#5b8cff', mode: 'dark', bgType: 'solid', bgColor: '', bgColor2: '#23262f', bgAngle: 135, bgImagePath: '' };
+    st.theme = { accent: st.accent || '#b6f230', mode: 'dark', bgType: 'solid', bgColor: '', bgColor2: '#23262f', bgAngle: 135, bgImagePath: '' };
   }
   (st.scenes || []).forEach((scene) => {
     if (!Array.isArray(scene.scanFolders)) scene.scanFolders = [];
@@ -91,7 +91,21 @@ function moveTrackToStage(track, stageId, ts = Date.now()) {
 }
 
 function applyAccent(color) {
-  document.documentElement.style.setProperty('--accent', color);
+  const root = document.documentElement;
+  root.style.setProperty('--accent', color);
+  root.style.setProperty('--on-accent', contrastOn(color)); // readable text on the accent
+}
+
+// Pick black or white text for a given accent, by relative luminance (WCAG).
+function contrastOn(hex) {
+  const c = String(hex).replace('#', '');
+  if (c.length < 6) return '#16180f';
+  const chan = (i) => {
+    const v = parseInt(c.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const L = 0.2126 * chan(0) + 0.7152 * chan(2) + 0.0722 * chan(4);
+  return L > 0.45 ? '#16180f' : '#ffffff';
 }
 
 /* Apply the full theme: mode, accent and background. */
@@ -99,13 +113,13 @@ function applyTheme(t) {
   if (!t) return;
   const root = document.documentElement;
   root.setAttribute('data-theme', t.mode === 'light' ? 'light' : 'dark');
-  applyAccent(t.accent || '#5b8cff');
+  applyAccent(t.accent || '#b6f230');
 
   const main = document.querySelector('.main');
   if (!main) return;
   let bg = '';
   if (t.bgType === 'gradient') {
-    bg = `linear-gradient(${t.bgAngle || 135}deg, ${t.bgColor || '#14151a'}, ${t.bgColor2 || '#23262f'})`;
+    bg = `linear-gradient(${t.bgAngle || 135}deg, ${t.bgColor || '#161719'}, ${t.bgColor2 || '#23262f'})`;
   } else if (t.bgType === 'image' && t.bgImagePath) {
     bg = `center / cover no-repeat url("${window.api.mediaUrl(t.bgImagePath)}")`;
   } else if (t.bgType === 'solid' && t.bgColor) {
@@ -1041,7 +1055,7 @@ async function renderProjectRow(track) {
 /* ------------------------------------------------------------------ *
  * Theme builder
  * ------------------------------------------------------------------ */
-const DEFAULT_THEME = { accent: '#5b8cff', mode: 'dark', bgType: 'solid', bgColor: '', bgColor2: '#23262f', bgAngle: 135, bgImagePath: '' };
+const DEFAULT_THEME = { accent: '#b6f230', mode: 'dark', bgType: 'solid', bgColor: '', bgColor2: '#23262f', bgAngle: 135, bgImagePath: '' };
 
 function openThemeModal() {
   syncThemeControls();
@@ -1053,9 +1067,9 @@ function syncThemeControls() {
   const t = state.theme;
   document.querySelectorAll('#themeMode button').forEach((b) => b.classList.toggle('active', b.dataset.mode === (t.mode || 'dark')));
   document.querySelectorAll('#themeBgType button').forEach((b) => b.classList.toggle('active', b.dataset.bg === (t.bgType || 'solid')));
-  document.getElementById('themeAccent').value = t.accent || '#5b8cff';
-  document.getElementById('bgColor1').value = t.bgColor || '#14151a';
-  document.getElementById('bgGradFrom').value = t.bgColor || '#14151a';
+  document.getElementById('themeAccent').value = t.accent || '#b6f230';
+  document.getElementById('bgColor1').value = t.bgColor || '#161719';
+  document.getElementById('bgGradFrom').value = t.bgColor || '#161719';
   document.getElementById('bgGradTo').value = t.bgColor2 || '#23262f';
   document.getElementById('bgGradAngle').value = t.bgAngle || 135;
   document.getElementById('bgImageName').textContent = t.bgImagePath ? t.bgImagePath.split(/[\\/]/).pop() : '';

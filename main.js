@@ -30,8 +30,9 @@ function createWindow() {
     height: 820,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: '#14151a',
-    title: 'Track Manager',
+    backgroundColor: '#161719',
+    title: 'trackr',
+    icon: path.join(__dirname, 'src', 'assets', 'iconHD.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -40,6 +41,21 @@ function createWindow() {
   });
   win.setMenuBarVisibility(false);
   win.loadFile(path.join(__dirname, 'src', 'index.html'));
+
+  // Dev aid: TM_SHOT=<path> captures a screenshot after load, then exits.
+  if (process.env.TM_SHOT) {
+    win.webContents.on('did-finish-load', () => {
+      setTimeout(async () => {
+        try {
+          const img = await win.webContents.capturePage();
+          fs.writeFileSync(process.env.TM_SHOT, img.toPNG());
+        } catch (e) {
+          /* ignore */
+        }
+        app.quit();
+      }, 1500);
+    });
+  }
 }
 
 app.whenReady().then(() => {
