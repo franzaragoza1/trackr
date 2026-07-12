@@ -41,14 +41,103 @@ async function boot() {
   const loaded = await window.api.load();
   state = loaded && loaded.scenes && loaded.scenes.length ? loaded : seedData();
   migrate(state);
+  setLang(state.lang || defaultLang());
+  applyI18n();
   applyTheme(state.theme);
   document.getElementById('accentPicker').value = state.theme.accent;
   render();
   refreshInbox();
+  if (!state.setupDone) openWizard();
+}
+
+// Guess a starting language from the OS before the user has chosen one.
+function defaultLang() {
+  return (navigator.language || 'en').toLowerCase().startsWith('es') ? 'es' : 'en';
+}
+
+// Switch language, persist, re-translate static text and re-render dynamic UI.
+function changeLang(lang) {
+  setLang(lang);
+  state.lang = lang;
+  save();
+  applyI18n();
+  render();
+}
+
+/* ------------------------------------------------------------------ *
+ * First-run Quick Setup wizard
+ * ------------------------------------------------------------------ */
+let wizChoice = { proj: '', mix: '', master: '' };
+
+function openWizard() {
+  wizChoice = { proj: '', mix: '', master: '' };
+  ['wizProjPath', 'wizMixPath', 'wizMasterPath'].forEach((id) => {
+    const e = document.getElementById(id);
+    e.hidden = true;
+    e.textContent = '';
+  });
+  syncWizControls();
+  document.getElementById('setupWizard').hidden = false;
+}
+
+function syncWizControls() {
+  document.querySelectorAll('#wizLang button').forEach((b) => b.classList.toggle('active', b.dataset.lang === LANG));
+  // Re-label folder buttons (applyI18n resets them to "Choose…" on language change).
+  [['proj', 'wizProjBtn'], ['mix', 'wizMixBtn'], ['master', 'wizMasterBtn']].forEach(([k, id]) => {
+    document.getElementById(id).textContent = wizChoice[k] ? t('wiz.change') : t('wiz.choose');
+  });
+}
+
+async function wizPick(kind, pathId) {
+  const res = await window.api.chooseFolder();
+  if (!res.ok) return;
+  wizChoice[kind] = res.folder;
+  const pathEl = document.getElementById(pathId);
+  pathEl.hidden = false;
+  pathEl.textContent = res.folder;
+  syncWizControls();
+}
+
+function finishWizard() {
+  const scene = activeScene();
+  if (wizChoice.proj && !scene.scanFolders.includes(wizChoice.proj)) scene.scanFolders.push(wizChoice.proj);
+  if (wizChoice.mix && !scene.mediaFolders.some((m) => m.path === wizChoice.mix && m.role === 'mixdown')) {
+    scene.mediaFolders.push({ id: uid(), path: wizChoice.mix, role: 'mixdown' });
+  }
+  if (wizChoice.master && !scene.mediaFolders.some((m) => m.path === wizChoice.master && m.role === 'master')) {
+    scene.mediaFolders.push({ id: uid(), path: wizChoice.master, role: 'master' });
+  }
+  state.setupDone = true;
+  if (!state.lang) state.lang = LANG;
+  save();
+  document.getElementById('setupWizard').hidden = true;
+  render();
+  refreshInbox();
+}
+
+function wireWizard() {
+  document.querySelectorAll('#wizLang button').forEach((b) =>
+    b.addEventListener('click', () => {
+      changeLang(b.dataset.lang);
+      syncWizControls();
+    })
+  );
+  document.getElementById('wizProjBtn').addEventListener('click', () => wizPick('proj', 'wizProjPath'));
+  document.getElementById('wizMixBtn').addEventListener('click', () => wizPick('mix', 'wizMixPath'));
+  document.getElementById('wizMasterBtn').addEventListener('click', () => wizPick('master', 'wizMasterPath'));
+  document.getElementById('wizFinishBtn').addEventListener('click', finishWizard);
+  document.getElementById('wizSkipBtn').addEventListener('click', finishWizard);
 }
 
 /* Normalize older data so newer fields always exist. Grows as features land. */
 function migrate(st) {
+  if (typeof st.lang !== 'string') st.lang = '';
+  if (typeof st.setupDone !== 'boolean') {
+    // Existing users (who already have tracks or folders) skip the first-run wizard.
+    st.setupDone = (st.scenes || []).some(
+      (s) => (s.tracks && s.tracks.length) || (s.scanFolders && s.scanFolders.length) || (s.mediaFolders && s.mediaFolders.length)
+    );
+  }
   if (!Array.isArray(st.checklistTemplates)) st.checklistTemplates = [];
   if (!st.theme) {
     st.theme = { accent: st.accent || '#b6f230', mode: 'dark', bgType: 'solid', bgColor: '', bgColor2: '#23262f', bgAngle: 135, bgImagePath: '' };
@@ -174,8 +263,9 @@ function renderBoard() {
     const last = scene.stages[scene.stages.length - 1];
     return last && t.stageId === last.id;
   }).length;
-  document.getElementById('sceneStats').textContent =
-    total ? `${total} track${total > 1 ? 's' : ''} · ${released} released` : 'No tracks yet';
+  document.getElementById('sceneStats').textContent = total
+    ? t('stats.line', { n: total, tracks: t(total > 1 ? 'stats.tracks' : 'stats.track'), r: released })
+    : t('stats.none');
 
   scene.stages.forEach((stage) => {
     const col = document.createElement('div');
@@ -192,7 +282,7 @@ function renderBoard() {
 
     const body = col.querySelector('.column-body');
     if (!tracks.length) {
-      body.innerHTML = '<div class="empty-col">Drop tracks here</div>';
+      body.innerHTML = `<div class="empty-col">${t('board.drop')}</div>`;
     } else {
       tracks.forEach((t) => body.appendChild(renderCard(t)));
     }
@@ -245,7 +335,7 @@ function renderCard(track) {
     ${meta.length ? `<div class="card-meta">${meta.join('')}</div>` : ''}
     <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
     <div class="card-foot">
-      <span>${totalItems ? `${done}/${totalItems} done` : 'No checklist'}</span>
+      <span>${totalItems ? t('card.done', { d: done, t: totalItems }) : t('card.noChecklist')}</span>
       <span class="card-foot-right">${ind.join('')}<span>${pct}%</span></span>
     </div>`;
 
@@ -375,7 +465,7 @@ function renderModalAttachments() {
   ul.innerHTML = '';
   primaryAudioEl = null;
   if (!modalAttachments.length) {
-    ul.innerHTML = '<li class="attach-empty">Nothing attached yet.</li>';
+    ul.innerHTML = `<li class="attach-empty">${t('track.noAttach')}</li>`;
     return;
   }
 
@@ -396,8 +486,8 @@ function renderModalAttachments() {
         <span class="attach-icon">${kind === 'audio' ? '♪' : kind === 'midi' ? '𝅘𝅥' : '⎙'}</span>
         ${roleBadge}
         <span class="attach-name" title="${escapeHtml(att.path)}">${escapeHtml(att.name)}</span>
-        <button class="ghost-btn small attach-reveal" type="button">Show</button>
-        <button class="check-del attach-del" type="button" title="Remove">×</button>
+        <button class="ghost-btn small attach-reveal" type="button">${t('track.show')}</button>
+        <button class="check-del attach-del" type="button" title="${t('track.remove')}">×</button>
       </div>
       ${isAudio ? '<audio class="attach-audio" controls preload="none"></audio>' : ''}`;
 
@@ -418,9 +508,9 @@ function renderModalAttachments() {
 async function addAttachments() {
   const res = await window.api.pickFiles();
   if (!res.ok) return;
-  res.files.forEach((f) => {
-    if (modalAttachments.some((a) => a.path === f.path)) return; // dedupe
-    modalAttachments.push({ id: uid(), name: f.name, path: f.path, kind: attachKind(f.name) });
+  res.files.forEach((file) => {
+    if (modalAttachments.some((a) => a.path === file.path)) return; // dedupe
+    modalAttachments.push({ id: uid(), name: file.name, path: file.path, kind: attachKind(file.name) });
   });
   renderModalAttachments();
 }
@@ -430,7 +520,7 @@ function renderModalFixes() {
   const ul = document.getElementById('tFixes');
   ul.innerHTML = '';
   if (!modalFixes.length) {
-    ul.innerHTML = '<li class="attach-empty">No fixes noted.</li>';
+    ul.innerHTML = `<li class="attach-empty">${t('track.noFixes')}</li>`;
     return;
   }
   modalFixes
@@ -441,9 +531,9 @@ function renderModalFixes() {
       li.className = 'fix-item' + (fix.done ? ' done' : '');
       li.innerHTML = `
         <input type="checkbox" ${fix.done ? 'checked' : ''} />
-        <button class="fix-time" type="button" title="Jump to this spot">${fmtTime(fix.at)}</button>
+        <button class="fix-time" type="button" title="${t('track.jump')}">${fmtTime(fix.at)}</button>
         <span class="fix-text">${escapeHtml(fix.text)}</span>
-        <button class="check-del" type="button" title="Remove">×</button>`;
+        <button class="check-del" type="button" title="${t('track.remove')}">×</button>`;
       li.querySelector('input').addEventListener('change', (e) => {
         fix.done = e.target.checked;
         renderModalFixes();
@@ -453,7 +543,7 @@ function renderModalFixes() {
           primaryAudioEl.currentTime = fix.at || 0;
           primaryAudioEl.play().catch(() => {});
         } else {
-          toast('Attach an audio file to jump to a spot');
+          toast(t('toast.attachAudioSeek'));
         }
       });
       li.querySelector('.check-del').addEventListener('click', () => {
@@ -469,7 +559,7 @@ function renderModalFeedback() {
   const ul = document.getElementById('tFeedback');
   ul.innerHTML = '';
   if (!modalFeedback.length) {
-    ul.innerHTML = '<li class="attach-empty">No feedback logged.</li>';
+    ul.innerHTML = `<li class="attach-empty">${t('track.noFeedback')}</li>`;
     return;
   }
   modalFeedback
@@ -481,18 +571,18 @@ function renderModalFeedback() {
       const when = fb.at ? new Date(fb.at).toLocaleDateString() : '';
       li.innerHTML = `
         <div class="feedback-meta">
-          <span class="feedback-who">${escapeHtml(fb.who || 'Someone')}</span>
+          <span class="feedback-who">${escapeHtml(fb.who || t('track.someone'))}</span>
           <span class="feedback-when">${when}</span>
         </div>
         <div class="feedback-text">${escapeHtml(fb.text)}</div>
         <div class="feedback-actions">
-          <button class="ghost-btn small fb-to-task" type="button">→ Add as to-do</button>
-          <button class="check-del" type="button" title="Remove">×</button>
+          <button class="ghost-btn small fb-to-task" type="button">${t('track.toTodo')}</button>
+          <button class="check-del" type="button" title="${t('track.remove')}">×</button>
         </div>`;
       li.querySelector('.fb-to-task').addEventListener('click', () => {
         modalChecklist.push({ id: uid(), text: fb.text, done: false });
         renderModalChecklist();
-        toast('Added to checklist');
+        toast(t('toast.addedToChecklist'));
       });
       li.querySelector('.check-del').addEventListener('click', () => {
         modalFeedback = modalFeedback.filter((f) => f.id !== fb.id);
@@ -507,22 +597,22 @@ function renderTemplateSelect() {
   const sel = document.getElementById('templateSelect');
   const templates = state.checklistTemplates || [];
   sel.innerHTML =
-    '<option value="">Apply template…</option>' +
-    templates.map((t) => `<option value="${t.id}">${escapeHtml(t.name)} (${t.items.length})</option>`).join('');
+    `<option value="">${t('track.applyTpl')}</option>` +
+    templates.map((tpl) => `<option value="${tpl.id}">${escapeHtml(tpl.name)} (${tpl.items.length})</option>`).join('');
 }
 
 function applyTemplate() {
   const id = document.getElementById('templateSelect').value;
-  const tpl = (state.checklistTemplates || []).find((t) => t.id === id);
-  if (!tpl) return toast('Pick a template first');
+  const tpl = (state.checklistTemplates || []).find((x) => x.id === id);
+  if (!tpl) return toast(t('toast.pickTpl'));
   tpl.items.forEach((text) => modalChecklist.push({ id: uid(), text, done: false }));
   renderModalChecklist();
-  toast(`Applied "${tpl.name}"`);
+  toast(t('toast.applied', { name: tpl.name }));
 }
 
 function saveTemplate() {
-  if (!modalChecklist.length) return toast('Add some checklist items first');
-  const name = prompt('Template name (e.g. Mixdown, Promo):');
+  if (!modalChecklist.length) return toast(t('toast.addItemsFirst'));
+  const name = prompt(t('prompt.tplName'));
   if (!name || !name.trim()) return;
   state.checklistTemplates.push({
     id: uid(),
@@ -531,18 +621,18 @@ function saveTemplate() {
   });
   save();
   renderTemplateSelect();
-  toast('Template saved');
+  toast(t('toast.tplSaved'));
 }
 
 function deleteTemplate() {
   const id = document.getElementById('templateSelect').value;
-  const tpl = (state.checklistTemplates || []).find((t) => t.id === id);
-  if (!tpl) return toast('Pick a template to delete');
-  if (!confirm(`Delete template "${tpl.name}"?`)) return;
-  state.checklistTemplates = state.checklistTemplates.filter((t) => t.id !== id);
+  const tpl = (state.checklistTemplates || []).find((x) => x.id === id);
+  if (!tpl) return toast(t('toast.pickTplDel'));
+  if (!confirm(t('confirm.delTpl', { name: tpl.name }))) return;
+  state.checklistTemplates = state.checklistTemplates.filter((x) => x.id !== id);
   save();
   renderTemplateSelect();
-  toast('Template deleted');
+  toast(t('toast.tplDeleted'));
 }
 
 function saveTrackFromModal() {
@@ -582,7 +672,7 @@ function deleteCurrentTrack() {
   save();
   render();
   closeTrackModal();
-  toast('Track deleted');
+  toast(t('toast.trackDeleted'));
 }
 
 /* ------------------------------------------------------------------ *
@@ -601,8 +691,8 @@ function renderStageEditor() {
     const li = document.createElement('li');
     li.className = 'stage-row';
     li.innerHTML = `
-      <button class="stage-move" data-dir="-1" title="Move up">▲</button>
-      <button class="stage-move" data-dir="1" title="Move down">▼</button>
+      <button class="stage-move" data-dir="-1" title="${t('stages.up')}">▲</button>
+      <button class="stage-move" data-dir="1" title="${t('stages.down')}">▼</button>
       <input type="text" value="${escapeHtml(stage.name)}" />
       <button class="icon-btn" title="Remove">×</button>`;
 
@@ -630,9 +720,9 @@ function moveStage(idx, dir) {
 
 function removeStage(stageId) {
   const scene = activeScene();
-  if (scene.stages.length <= 1) return toast('Keep at least one stage');
-  const affected = scene.tracks.filter((t) => t.stageId === stageId);
-  if (affected.length && !confirm(`${affected.length} track(s) are in this stage. They will move to the first stage. Continue?`)) return;
+  if (scene.stages.length <= 1) return toast(t('toast.keepOneStage'));
+  const affected = scene.tracks.filter((tr) => tr.stageId === stageId);
+  if (affected.length && !confirm(t('confirm.affectedStage', { n: affected.length }))) return;
   scene.stages = scene.stages.filter((s) => s.id !== stageId);
   const first = scene.stages[0].id;
   affected.forEach((t) => moveTrackToStage(t, first));
@@ -653,7 +743,7 @@ function addStage(name) {
  * Scenes CRUD
  * ------------------------------------------------------------------ */
 function addScene() {
-  const name = prompt('Scene name (e.g. a client, a label, your own music):');
+  const name = prompt(t('prompt.sceneName'));
   if (!name || !name.trim()) return;
   const scene = { id: uid(), name: name.trim(), stages: makeStages(DEFAULT_STAGES), tracks: [], scanFolders: [] };
   state.scenes.push(scene);
@@ -664,7 +754,7 @@ function addScene() {
 
 function renameScene() {
   const scene = activeScene();
-  const name = prompt('Rename scene:', scene.name);
+  const name = prompt(t('prompt.renameScene'), scene.name);
   if (!name || !name.trim()) return;
   scene.name = name.trim();
   save();
@@ -672,9 +762,9 @@ function renameScene() {
 }
 
 function deleteScene() {
-  if (state.scenes.length <= 1) return toast('You need at least one scene');
+  if (state.scenes.length <= 1) return toast(t('toast.needOneScene'));
   const scene = activeScene();
-  if (!confirm(`Delete scene "${scene.name}" and all its tracks? This cannot be undone.`)) return;
+  if (!confirm(t('confirm.deleteScene', { name: scene.name }))) return;
   state.scenes = state.scenes.filter((s) => s.id !== scene.id);
   state.activeSceneId = state.scenes[0].id;
   save();
@@ -686,21 +776,23 @@ function deleteScene() {
  * ------------------------------------------------------------------ */
 async function exportBackup() {
   const res = await window.api.exportData(state);
-  if (res.ok) toast('Backup exported');
+  if (res.ok) toast(t('toast.backupExported'));
 }
 
 async function importBackup() {
-  if (!confirm('Importing will replace everything currently in the app. Continue?')) return;
+  if (!confirm(t('confirm.import'))) return;
   const res = await window.api.importData();
-  if (!res.ok) return res.error && toast('Import failed');
-  if (!res.data || !res.data.scenes) return toast('Not a valid backup file');
+  if (!res.ok) return res.error && toast(t('toast.importFailed'));
+  if (!res.data || !res.data.scenes) return toast(t('toast.notValidBackup'));
   state = res.data;
   migrate(state);
+  setLang(state.lang || defaultLang());
+  applyI18n();
   applyTheme(state.theme);
   document.getElementById('accentPicker').value = state.theme.accent;
   save();
   render();
-  toast('Backup imported');
+  toast(t('toast.backupImported'));
 }
 
 /* ------------------------------------------------------------------ *
@@ -859,7 +951,7 @@ function renderMediaFolders() {
   const ul = document.getElementById('mediaFolderList');
   ul.innerHTML = '';
   if (!scene.mediaFolders.length) {
-    ul.innerHTML = '<li class="folder-empty">No bounce folders yet — add your mixdowns and masters folders.</li>';
+    ul.innerHTML = `<li class="folder-empty">${t('projects.noBounceFolders')}</li>`;
     return;
   }
   scene.mediaFolders.forEach((mf) => {
@@ -892,7 +984,7 @@ function renderFolders() {
   const ul = document.getElementById('folderList');
   ul.innerHTML = '';
   if (!scene.scanFolders.length) {
-    ul.innerHTML = '<li class="folder-empty">No folders yet — add the folder where you keep your projects.</li>';
+    ul.innerHTML = `<li class="folder-empty">${t('projects.noFolders')}</li>`;
     return;
   }
   scene.scanFolders.forEach((folder) => {
@@ -920,7 +1012,7 @@ function renderInbox() {
   if (scanBusy) {
     count.textContent = '';
     empty.hidden = false;
-    empty.textContent = 'Scanning…';
+    empty.textContent = t('inbox.scanning');
     return;
   }
 
@@ -930,9 +1022,7 @@ function renderInbox() {
 
   if (!groups.length) {
     empty.hidden = false;
-    empty.textContent = scene.scanFolders.length
-      ? 'No new projects found — everything is already on your board.'
-      : 'No folders yet. Add a folder, then Rescan.';
+    empty.textContent = scene.scanFolders.length ? t('projects.emptyLinked') : t('projects.emptyNoFolders');
     return;
   }
   empty.hidden = true;
@@ -946,11 +1036,11 @@ function renderInbox() {
         <span class="inbox-name">${escapeHtml(g.name)}</span>
         <span class="inbox-meta">
           <span class="chip">${escapeHtml(g.daw)}</span>
-          ${g.versions > 1 ? `<span class="chip">${g.versions} versions</span>` : ''}
+          ${g.versions > 1 ? `<span class="chip">${t('inbox.versions', { n: g.versions })}</span>` : ''}
           ${when ? `<span class="inbox-when">${when}</span>` : ''}
         </span>
       </div>
-      <button class="primary-btn small add-one">Add</button>`;
+      <button class="primary-btn small add-one">${t('inbox.add')}</button>`;
     li.querySelector('.add-one').addEventListener('click', () => {
       linkProject(g);
       save();
@@ -996,7 +1086,7 @@ function addAllProjects() {
   render();
   renderInbox();
   updateInboxBadge();
-  toast(`Added ${groups.length} track${groups.length > 1 ? 's' : ''}`);
+  toast(t('toast.addedTracks', { n: groups.length }));
 }
 
 async function addFolder() {
@@ -1025,17 +1115,17 @@ async function renderProjectRow(track) {
     <div class="project-info">
       <span class="chip">${escapeHtml(p.daw || 'Project')}</span>
       <span class="project-name" title="${escapeHtml(p.openPath)}">${escapeHtml(p.name)}</span>
-      <span class="project-missing" hidden>· file not found</span>
+      <span class="project-missing" hidden>${t('proj.missing')}</span>
     </div>
     <div class="project-actions">
-      <button class="ghost-btn small" id="openProjectBtn">Open</button>
-      <button class="ghost-btn small" id="revealProjectBtn">Show in folder</button>
-      <button class="ghost-btn small" id="unlinkProjectBtn">Unlink</button>
+      <button class="ghost-btn small" id="openProjectBtn">${t('proj.open')}</button>
+      <button class="ghost-btn small" id="revealProjectBtn">${t('proj.reveal')}</button>
+      <button class="ghost-btn small" id="unlinkProjectBtn">${t('proj.unlink')}</button>
     </div>`;
 
   row.querySelector('#openProjectBtn').addEventListener('click', async () => {
     const r = await window.api.openPath(p.openPath);
-    if (!r.ok) toast('Could not open — file may have moved');
+    if (!r.ok) toast(t('toast.couldNotOpen'));
   });
   row.querySelector('#revealProjectBtn').addEventListener('click', () => window.api.reveal(p.openPath));
   row.querySelector('#unlinkProjectBtn').addEventListener('click', () => {
@@ -1064,19 +1154,20 @@ function openThemeModal() {
 
 // Reflect state.theme into the modal controls and visible bg-control group.
 function syncThemeControls() {
-  const t = state.theme;
-  document.querySelectorAll('#themeMode button').forEach((b) => b.classList.toggle('active', b.dataset.mode === (t.mode || 'dark')));
-  document.querySelectorAll('#themeBgType button').forEach((b) => b.classList.toggle('active', b.dataset.bg === (t.bgType || 'solid')));
-  document.getElementById('themeAccent').value = t.accent || '#b6f230';
-  document.getElementById('bgColor1').value = t.bgColor || '#161719';
-  document.getElementById('bgGradFrom').value = t.bgColor || '#161719';
-  document.getElementById('bgGradTo').value = t.bgColor2 || '#23262f';
-  document.getElementById('bgGradAngle').value = t.bgAngle || 135;
-  document.getElementById('bgImageName').textContent = t.bgImagePath ? t.bgImagePath.split(/[\\/]/).pop() : '';
+  const th = state.theme;
+  document.querySelectorAll('#themeLang button').forEach((b) => b.classList.toggle('active', b.dataset.lang === LANG));
+  document.querySelectorAll('#themeMode button').forEach((b) => b.classList.toggle('active', b.dataset.mode === (th.mode || 'dark')));
+  document.querySelectorAll('#themeBgType button').forEach((b) => b.classList.toggle('active', b.dataset.bg === (th.bgType || 'solid')));
+  document.getElementById('themeAccent').value = th.accent || '#b6f230';
+  document.getElementById('bgColor1').value = th.bgColor || '#161719';
+  document.getElementById('bgGradFrom').value = th.bgColor || '#161719';
+  document.getElementById('bgGradTo').value = th.bgColor2 || '#23262f';
+  document.getElementById('bgGradAngle').value = th.bgAngle || 135;
+  document.getElementById('bgImageName').textContent = th.bgImagePath ? th.bgImagePath.split(/[\\/]/).pop() : '';
 
-  document.getElementById('bgSolidCtl').hidden = t.bgType !== 'solid';
-  document.getElementById('bgGradientCtl').hidden = t.bgType !== 'gradient';
-  document.getElementById('bgImageCtl').hidden = t.bgType !== 'image';
+  document.getElementById('bgSolidCtl').hidden = th.bgType !== 'solid';
+  document.getElementById('bgGradientCtl').hidden = th.bgType !== 'gradient';
+  document.getElementById('bgImageCtl').hidden = th.bgType !== 'image';
 }
 
 function updateTheme(patch) {
@@ -1089,6 +1180,12 @@ function updateTheme(patch) {
 
 function wireThemeModal() {
   document.getElementById('themeBtn').addEventListener('click', openThemeModal);
+  document.querySelectorAll('#themeLang button').forEach((b) =>
+    b.addEventListener('click', () => {
+      changeLang(b.dataset.lang);
+      syncThemeControls();
+    })
+  );
   document.getElementById('closeThemeModal').addEventListener('click', () => (document.getElementById('themeModal').hidden = true));
   document.getElementById('doneThemeBtn').addEventListener('click', () => (document.getElementById('themeModal').hidden = true));
 
@@ -1129,11 +1226,11 @@ let bounceChoice = {}; // path -> chosen trackId
 async function openBouncesModal() {
   const scene = activeScene();
   if (!scene.mediaFolders || !scene.mediaFolders.length) {
-    toast('Add a mixdowns or masters folder first');
+    toast(t('toast.addBounceFolder'));
     return;
   }
   document.getElementById('bouncesModal').hidden = false;
-  document.getElementById('bouncesStatus').textContent = 'Scanning…';
+  document.getElementById('bouncesStatus').textContent = t('inbox.scanning');
   document.getElementById('bouncesList').innerHTML = '';
   bounceFiles = await getUnlinkedBounces();
   bounceChoice = {};
@@ -1145,13 +1242,13 @@ async function openBouncesModal() {
 
 function trackOptionsHtml(selectedId) {
   const scene = activeScene();
-  const opts = ['<option value="">— choose track —</option>'];
+  const opts = [`<option value="">${t('bounces.choose')}</option>`];
   scene.tracks
     .slice()
     .sort((a, b) => a.title.localeCompare(b.title))
-    .forEach((t) => {
-      const label = t.project && t.project.name ? t.project.name : t.title;
-      opts.push(`<option value="${t.id}"${t.id === selectedId ? ' selected' : ''}>${escapeHtml(label)}</option>`);
+    .forEach((tr) => {
+      const label = tr.project && tr.project.name ? tr.project.name : tr.title;
+      opts.push(`<option value="${tr.id}"${tr.id === selectedId ? ' selected' : ''}>${escapeHtml(label)}</option>`);
     });
   return opts.join('');
 }
@@ -1179,7 +1276,7 @@ function renderBouncesList() {
       <audio class="bounce-audio" controls preload="none"></audio>
       <div class="bounce-actions">
         <select class="bounce-track">${trackOptionsHtml(guessed)}</select>
-        <button class="primary-btn small link-one" type="button">Link</button>
+        <button class="primary-btn small link-one" type="button">${t('bounces.link')}</button>
       </div>`;
 
     li.querySelector('.bounce-audio').src = window.api.mediaUrl(f.path);
@@ -1191,7 +1288,7 @@ function renderBouncesList() {
     });
     li.querySelector('.link-one').addEventListener('click', () => {
       const trackId = sel.value;
-      if (!trackId) return toast('Choose a track first');
+      if (!trackId) return toast(t('toast.chooseTrack'));
       linkOneBounce(f, trackId);
     });
     list.appendChild(li);
@@ -1206,7 +1303,7 @@ function linkOneBounce(file, trackId) {
     bounceFiles = bounceFiles.filter((b) => b.path !== file.path);
     delete bounceChoice[file.path];
     renderBouncesList();
-    toast('Linked');
+    toast(t('toast.linked'));
   }
 }
 
@@ -1226,7 +1323,7 @@ function linkAllChosen() {
     render();
     renderBouncesList();
   }
-  toast(n ? `Linked ${n} bounce${n > 1 ? 's' : ''}` : 'Nothing chosen to link');
+  toast(n ? t('toast.linkedN', { n }) : t('toast.nothingChosen'));
 }
 
 // Ask the model to map each bounce to the best project. Fills the dropdowns.
@@ -1234,12 +1331,12 @@ async function aiSuggestBounces() {
   const cfg = await window.api.aiGetConfig();
   if (!aiReady(cfg)) {
     openAiModal();
-    return toast('Set up the assistant first');
+    return toast(t('toast.setupAi'));
   }
   if (!bounceFiles.length) return;
   const scene = activeScene();
   const tracks = scene.tracks;
-  if (!tracks.length) return toast('No tracks to match against yet');
+  if (!tracks.length) return toast(t('toast.noTracksMatch'));
 
   const btn = document.getElementById('aiSuggestBouncesBtn');
   const prev = btn.textContent;
@@ -1261,26 +1358,26 @@ async function aiSuggestBounces() {
   const res = await window.api.aiChat(messages);
   btn.textContent = prev;
   btn.disabled = false;
-  if (!res.ok) return toast('AI error: ' + res.error);
+  if (!res.ok) return toast(t('toast.aiError', { err: res.error }));
 
   let mapping;
   try {
     const clean = res.content.replace(/```json|```/g, '').trim();
     mapping = JSON.parse(clean.slice(clean.indexOf('['), clean.lastIndexOf(']') + 1));
   } catch (e) {
-    return toast('Could not read AI response');
+    return toast(t('toast.aiCantRead'));
   }
   let filled = 0;
   mapping.forEach((m) => {
     const f = bounceFiles[m.b - 1];
-    const t = tracks[m.p - 1];
-    if (f && t && m.p > 0) {
-      bounceChoice[f.path] = t.id;
+    const tr = tracks[m.p - 1];
+    if (f && tr && m.p > 0) {
+      bounceChoice[f.path] = tr.id;
       filled++;
     }
   });
   renderBouncesList();
-  toast(filled ? `AI proposed ${filled} match${filled > 1 ? 'es' : ''} — review and link` : 'AI found no confident matches');
+  toast(filled ? t('toast.aiProposed', { n: filled }) : t('toast.aiNoMatch'));
 }
 
 /* ------------------------------------------------------------------ *
@@ -1363,7 +1460,7 @@ function openInsightsModal() {
 function renderInsights(ins) {
   const body = document.getElementById('insightsBody');
   if (!ins.total) {
-    body.innerHTML = '<p class="hint">No tracks yet. Add some and your habits will show up here.</p>';
+    body.innerHTML = `<p class="hint">${t('ins.empty')}</p>`;
     return;
   }
 
@@ -1374,7 +1471,7 @@ function renderInsights(ins) {
       const isNeck = ins.bottleneck && s.id === ins.bottleneck.id;
       return `
         <div class="stat-bar-row">
-          <span class="stat-bar-name">${escapeHtml(s.name)}${isNeck ? ' <span class="neck-tag">bottleneck</span>' : ''}</span>
+          <span class="stat-bar-name">${escapeHtml(s.name)}${isNeck ? ` <span class="neck-tag">${t('ins.bottleneckTag')}</span>` : ''}</span>
           <div class="stat-bar"><div class="stat-bar-fill${isNeck ? ' neck' : ''}" style="width:${w}%"></div></div>
           <span class="stat-bar-val">${s.samples ? humanizeMs(s.avg) : '—'}</span>
         </div>`;
@@ -1386,37 +1483,37 @@ function renderInsights(ins) {
         .slice(0, 12)
         .map(
           (x) =>
-            `<li class="insight-track" data-id="${x.track.id}"><span>${escapeHtml(x.track.title)}</span><span class="insight-idle">${humanizeMs(x.idle)} idle</span></li>`
+            `<li class="insight-track" data-id="${x.track.id}"><span>${escapeHtml(x.track.title)}</span><span class="insight-idle">${t('ins.idle', { time: humanizeMs(x.idle) })}</span></li>`
         )
         .join('')
-    : '<li class="hint">Nothing stuck — nice.</li>';
+    : `<li class="hint">${t('ins.stuckNone')}</li>`;
 
   const finishedList = ins.finished.length
     ? ins.finished
         .slice()
         .reverse()
         .slice(0, 20)
-        .map((t) => `<li class="insight-track" data-id="${t.id}"><span>${escapeHtml(t.title)}</span></li>`)
+        .map((tk) => `<li class="insight-track" data-id="${tk.id}"><span>${escapeHtml(tk.title)}</span></li>`)
         .join('')
-    : '<li class="hint">Nothing finished yet — the first one is coming.</li>';
+    : `<li class="hint">${t('ins.finishedNone')}</li>`;
 
   body.innerHTML = `
     <div class="stat-tiles">
-      <div class="stat-tile"><div class="stat-num">${ins.total}</div><div class="stat-lbl">tracks</div></div>
-      <div class="stat-tile"><div class="stat-num">${ins.finishedN}</div><div class="stat-lbl">finished</div></div>
-      <div class="stat-tile"><div class="stat-num">${ins.inProgress}</div><div class="stat-lbl">in progress</div></div>
-      <div class="stat-tile"><div class="stat-num">${ins.ratio ? '1 : ' + ins.ratio.toFixed(1) : '—'}</div><div class="stat-lbl">finished : started</div></div>
+      <div class="stat-tile"><div class="stat-num">${ins.total}</div><div class="stat-lbl">${t('ins.tracks')}</div></div>
+      <div class="stat-tile"><div class="stat-num">${ins.finishedN}</div><div class="stat-lbl">${t('ins.finished')}</div></div>
+      <div class="stat-tile"><div class="stat-num">${ins.inProgress}</div><div class="stat-lbl">${t('ins.inProgress')}</div></div>
+      <div class="stat-tile"><div class="stat-num">${ins.ratio ? '1 : ' + ins.ratio.toFixed(1) : '—'}</div><div class="stat-lbl">${t('ins.ratio')}</div></div>
     </div>
 
-    ${ins.bottleneck ? `<p class="insight-note">Your tracks stall most at <strong>${escapeHtml(ins.bottleneck.name)}</strong> — on average <strong>${humanizeMs(ins.bottleneck.avg)}</strong> there.</p>` : ''}
+    ${ins.bottleneck ? `<p class="insight-note">${t('ins.bottleneck', { stage: `<strong>${escapeHtml(ins.bottleneck.name)}</strong>`, time: `<strong>${humanizeMs(ins.bottleneck.avg)}</strong>` })}</p>` : ''}
 
-    <div class="section-head" style="margin-top:6px;">Average time per stage</div>
+    <div class="section-head" style="margin-top:6px;">${t('ins.avgPerStage')}</div>
     <div class="stat-bars">${bars}</div>
 
-    <div class="section-head">Stuck tracks <span class="hint tiny">(3+ weeks untouched)</span></div>
+    <div class="section-head">${t('ins.stuck')} <span class="hint tiny">${t('ins.stuckHint')}</span></div>
     <ul class="insight-list">${stalledList}</ul>
 
-    <div class="section-head">Finished</div>
+    <div class="section-head">${t('ins.finished')}</div>
     <ul class="insight-list wall">${finishedList}</ul>`;
 
   // Click a track name to open it.
@@ -1485,7 +1582,7 @@ function setAiView(view) {
 function updateModeBadge(cfg) {
   const badge = document.getElementById('aiModeBadge');
   if (aiReady(cfg)) {
-    badge.textContent = cfg.mode === 'free' ? 'Free' : 'Your key';
+    badge.textContent = cfg.mode === 'free' ? t('ai.badgeFree') : t('ai.badgeKey');
     badge.className = 'ai-mode-badge ' + (cfg.mode === 'free' ? 'mode-free' : 'mode-key');
     badge.hidden = false;
   } else {
@@ -1496,7 +1593,7 @@ function updateModeBadge(cfg) {
 function aiGreetIfNeeded() {
   if (!aiHistory.length) {
     document.getElementById('aiMessages').innerHTML = '';
-    aiAppendMessage('assistant', aiRenderText('Hey! Ask me what to finish next, why a track keeps stalling, or to plan out a release. I can see your current board.'));
+    aiAppendMessage('assistant', aiRenderText(t('ai.greet')));
   }
 }
 
@@ -1553,9 +1650,9 @@ async function saveAiConfig() {
   if (cfg.hasKey) {
     setAiView('chat');
     aiGreetIfNeeded();
-    toast('Assistant ready');
+    toast(t('toast.aiReady'));
   } else {
-    toast('Enter a valid key');
+    toast(t('toast.enterKey'));
   }
 }
 
@@ -1564,7 +1661,7 @@ async function aiSuggestChecklist() {
   const cfg = await window.api.aiGetConfig();
   if (!aiReady(cfg)) {
     openAiModal();
-    return toast('Set up the assistant first');
+    return toast(t('toast.setupAi'));
   }
   const title = document.getElementById('tTitle').value.trim() || 'this track';
   const stageSel = document.getElementById('tStage');
@@ -1580,16 +1677,16 @@ async function aiSuggestChecklist() {
   const res = await window.api.aiChat(messages);
   btn.textContent = prev;
   btn.disabled = false;
-  if (!res.ok) return toast('AI error: ' + res.error);
+  if (!res.ok) return toast(t('toast.aiError', { err: res.error }));
   const items = res.content
     .split('\n')
     .map((l) => l.replace(/^[-*\d.)\s]+/, '').trim())
     .filter(Boolean)
     .slice(0, 15);
-  if (!items.length) return toast('No suggestions came back');
+  if (!items.length) return toast(t('toast.noSuggestions'));
   items.forEach((text) => modalChecklist.push({ id: uid(), text, done: false }));
   renderModalChecklist();
-  toast(`Added ${items.length} items`);
+  toast(t('toast.added', { n: items.length }));
 }
 
 function wireAi() {
@@ -1622,7 +1719,7 @@ function wireAi() {
     document.getElementById('aiMessages').innerHTML = '';
     updateModeBadge(null);
     setAiView('chooser');
-    toast('Signed out');
+    toast(t('toast.signedOut'));
   });
   document.getElementById('aiForm').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1731,6 +1828,7 @@ function wire() {
 
   wireThemeModal();
   wireAi();
+  wireWizard();
 
   // close modals on overlay click / Esc
   document.querySelectorAll('.modal-overlay').forEach((ov) =>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Track Manager</title>
+  <title>trackr</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -16,21 +16,21 @@
 
       <div class="side-section">
         <div class="side-head">
-          <span>Scenes</span>
-          <button class="icon-btn" id="addSceneBtn" title="New scene">+</button>
+          <span data-i18n="side.scenes">Scenes</span>
+          <button class="icon-btn" id="addSceneBtn" data-i18n-title="side.newScene" title="New scene">+</button>
         </div>
         <ul id="sceneList" class="scene-list"></ul>
       </div>
 
       <div class="side-footer">
         <label class="accent-row">
-          Accent
-          <input type="color" id="accentPicker" value="#5b8cff" />
+          <span data-i18n="side.accent">Accent</span>
+          <input type="color" id="accentPicker" value="#b6f230" />
         </label>
-        <button class="ghost-btn accent-btn" id="assistantBtn">✨ Assistant</button>
-        <button class="ghost-btn" id="themeBtn">Theme…</button>
-        <button class="ghost-btn" id="exportBtn">Export backup</button>
-        <button class="ghost-btn" id="importBtn">Import backup</button>
+        <button class="ghost-btn accent-btn" id="assistantBtn" data-i18n="side.assistant">✨ Assistant</button>
+        <button class="ghost-btn" id="themeBtn" data-i18n="side.theme">Theme…</button>
+        <button class="ghost-btn" id="exportBtn" data-i18n="side.export">Export backup</button>
+        <button class="ghost-btn" id="importBtn" data-i18n="side.import">Import backup</button>
       </div>
     </aside>
 
@@ -42,12 +42,12 @@
           <span class="scene-stats" id="sceneStats"></span>
         </div>
         <div class="topbar-right">
-          <button class="ghost-btn" id="insightsBtn">Insights</button>
-          <button class="ghost-btn" id="projectsBtn">Projects folder<span class="badge" id="inboxBadge" hidden>0</span></button>
-          <button class="ghost-btn" id="editStagesBtn">Edit stages</button>
-          <button class="ghost-btn" id="renameSceneBtn">Rename scene</button>
-          <button class="ghost-btn danger" id="deleteSceneBtn">Delete scene</button>
-          <button class="primary-btn" id="addTrackBtn">+ New track</button>
+          <button class="ghost-btn" id="insightsBtn" data-i18n="top.insights">Insights</button>
+          <button class="ghost-btn" id="projectsBtn"><span data-i18n="top.projects">Projects folder</span><span class="badge" id="inboxBadge" hidden>0</span></button>
+          <button class="ghost-btn" id="editStagesBtn" data-i18n="top.editStages">Edit stages</button>
+          <button class="ghost-btn" id="renameSceneBtn" data-i18n="top.renameScene">Rename scene</button>
+          <button class="ghost-btn danger" id="deleteSceneBtn" data-i18n="top.deleteScene">Delete scene</button>
+          <button class="primary-btn" id="addTrackBtn" data-i18n="top.newTrack">+ New track</button>
         </div>
       </header>
 
@@ -57,40 +57,40 @@
     <!-- Assistant: docked panel, part of the layout (not a popup) -->
     <aside class="assistant-panel" id="assistantPanel" hidden>
       <div class="assistant-head">
-        <span class="assistant-title">✨ Assistant<span class="ai-mode-badge" id="aiModeBadge" hidden></span></span>
+        <span class="assistant-title"><span data-i18n="ai.title">✨ Assistant</span><span class="ai-mode-badge" id="aiModeBadge" hidden></span></span>
         <div class="assistant-head-actions">
-          <button class="icon-btn" id="aiSettingsBtn" title="Settings">⚙</button>
-          <button class="icon-btn" id="closeAiPanel" title="Close">×</button>
+          <button class="icon-btn" id="aiSettingsBtn" data-i18n-title="ai.settings" title="Settings">⚙</button>
+          <button class="icon-btn" id="closeAiPanel" data-i18n-title="common.close" title="Close">×</button>
         </div>
       </div>
 
       <div id="aiChooser" class="ai-chooser" hidden>
-        <p class="ai-settings-lead">Try the assistant for free, or connect your own OpenRouter key for the top models.</p>
+        <p class="ai-settings-lead" data-i18n="ai.chooserLead">Try the assistant for free, or connect your own OpenRouter key for the top models.</p>
         <button class="ai-choice" id="aiUseFreeBtn" type="button">
-          <span class="ai-choice-title">✨ Free</span>
-          <span class="ai-choice-sub">Try it now — no signup, no key. Runs on a shared free model.</span>
+          <span class="ai-choice-title" data-i18n="ai.free">✨ Free</span>
+          <span class="ai-choice-sub" data-i18n="ai.freeSub">Try it now — no signup, no key. Runs on a shared free model.</span>
         </button>
         <button class="ai-choice" id="aiUseKeyBtn" type="button">
-          <span class="ai-choice-title">🔑 Use my API key</span>
-          <span class="ai-choice-sub">Your own OpenRouter key and choice of model — best quality.</span>
+          <span class="ai-choice-title" data-i18n="ai.useKey">🔑 Use my API key</span>
+          <span class="ai-choice-sub" data-i18n="ai.useKeySub">Your own OpenRouter key and choice of model — best quality.</span>
         </button>
-        <p class="ai-hint" id="aiFreeUnavailable" hidden>Free mode isn't set up in this build — use your own key below.</p>
+        <p class="ai-hint" id="aiFreeUnavailable" data-i18n="ai.freeUnavailable" hidden>Free mode isn't set up in this build — use your own key below.</p>
       </div>
 
       <div id="aiSettings" class="ai-settings" hidden>
         <div class="ai-settings-card">
-          <p class="ai-settings-lead">Connect <strong>OpenRouter</strong> to enable the assistant. Your key stays on this computer.</p>
-          <label class="ai-label">API key
+          <p class="ai-settings-lead" data-i18n="ai.settingsLead">Connect OpenRouter to enable the assistant. Your key stays on this computer.</p>
+          <label class="ai-label"><span data-i18n="ai.apiKey">API key</span>
             <input type="password" id="aiKey" class="ai-field" placeholder="sk-or-..." />
           </label>
-          <label class="ai-label">Model
+          <label class="ai-label"><span data-i18n="ai.model">Model</span>
             <input type="text" id="aiModel" class="ai-field" placeholder="anthropic/claude-sonnet-5" />
           </label>
-          <p class="ai-hint">Try <code>anthropic/claude-sonnet-5</code>, <code>anthropic/claude-3.5-haiku</code> (cheaper) or <code>openai/gpt-4o-mini</code>. More at openrouter.ai/models.</p>
+          <p class="ai-hint" data-i18n="ai.modelHint">Try claude-sonnet-5, claude-3.5-haiku (cheaper) or gpt-4o-mini. More at openrouter.ai/models.</p>
           <div class="ai-settings-actions">
-            <button class="ghost-btn small danger" id="aiClearKeyBtn" type="button">Clear key</button>
+            <button class="ghost-btn small danger" id="aiClearKeyBtn" type="button" data-i18n="ai.clearKey">Clear key</button>
             <div class="spacer"></div>
-            <button class="primary-btn small" id="aiSaveConfigBtn" type="button">Save</button>
+            <button class="primary-btn small" id="aiSaveConfigBtn" type="button" data-i18n="common.save">Save</button>
           </div>
         </div>
       </div>
@@ -98,8 +98,8 @@
       <div id="aiChatArea" class="ai-chat-area">
         <div id="aiMessages" class="ai-messages"></div>
         <form id="aiForm" class="ai-form">
-          <input type="text" id="aiInput" class="ai-field" placeholder="Ask about your tracks…" autocomplete="off" />
-          <button class="primary-btn" id="aiSendBtn" type="submit">Send</button>
+          <input type="text" id="aiInput" class="ai-field" data-i18n-ph="ai.input.ph" placeholder="Ask about your tracks…" autocomplete="off" />
+          <button class="primary-btn" id="aiSendBtn" type="submit" data-i18n="ai.send">Send</button>
         </form>
       </div>
     </aside>
@@ -109,16 +109,16 @@
   <div class="modal-overlay" id="trackModal" hidden>
     <div class="modal">
       <div class="modal-head">
-        <input type="text" id="tTitle" class="title-input" placeholder="Track title" />
-        <button class="icon-btn" id="closeTrackModal" title="Close">×</button>
+        <input type="text" id="tTitle" class="title-input" data-i18n-ph="track.title.ph" placeholder="Track title" />
+        <button class="icon-btn" id="closeTrackModal" data-i18n-title="common.close" title="Close">×</button>
       </div>
 
       <div class="modal-body">
         <div class="field-grid">
           <label>BPM <input type="number" id="tBpm" min="0" step="1" placeholder="128" /></label>
           <label>Key <input type="text" id="tKey" placeholder="A min" /></label>
-          <label>Label / destination <input type="text" id="tLabel" placeholder="e.g. My label" /></label>
-          <label>Stage
+          <label><span data-i18n="track.label">Label / destination</span> <input type="text" id="tLabel" data-i18n-ph="track.label.ph" placeholder="e.g. My label" /></label>
+          <label><span data-i18n="track.stage">Stage</span>
             <select id="tStage"></select>
           </label>
         </div>
@@ -127,65 +127,65 @@
 
         <div class="checklist-block">
           <div class="checklist-head">
-            <span>Checklist</span>
+            <span data-i18n="track.checklist">Checklist</span>
             <div class="progress-mini"><div class="progress-mini-fill" id="tProgressFill"></div></div>
             <span id="tProgressPct" class="pct">0%</span>
           </div>
           <ul id="tChecklist" class="checklist"></ul>
           <form id="addChecklistForm" class="add-check">
-            <input type="text" id="newCheckItem" placeholder="Add a to-do and press Enter" />
+            <input type="text" id="newCheckItem" data-i18n-ph="track.newItem.ph" placeholder="Add a to-do and press Enter" />
           </form>
           <div class="template-bar">
-            <select id="templateSelect" class="template-select"><option value="">Apply template…</option></select>
-            <button class="ghost-btn small" id="applyTemplateBtn" type="button">Apply</button>
-            <button class="ghost-btn small" id="saveTemplateBtn" type="button">Save current as template</button>
-            <button class="ghost-btn small danger" id="delTemplateBtn" type="button">Delete template</button>
-            <button class="ghost-btn small accent-btn" id="aiChecklistBtn" type="button">✨ Suggest</button>
+            <select id="templateSelect" class="template-select"><option value="" data-i18n="track.applyTpl">Apply template…</option></select>
+            <button class="ghost-btn small" id="applyTemplateBtn" type="button" data-i18n="track.apply">Apply</button>
+            <button class="ghost-btn small" id="saveTemplateBtn" type="button" data-i18n="track.saveTpl">Save current as template</button>
+            <button class="ghost-btn small danger" id="delTemplateBtn" type="button" data-i18n="track.delTpl">Delete template</button>
+            <button class="ghost-btn small accent-btn" id="aiChecklistBtn" type="button" data-i18n="track.suggest">✨ Suggest</button>
           </div>
         </div>
 
         <!-- Attachments -->
         <div class="section-block">
           <div class="section-head">
-            <span>Ideas &amp; files</span>
-            <button class="ghost-btn small" id="addAttachmentBtn" type="button">+ Attach files</button>
+            <span data-i18n="track.ideas">Ideas &amp; files</span>
+            <button class="ghost-btn small" id="addAttachmentBtn" type="button" data-i18n="track.attach">+ Attach files</button>
           </div>
-          <p class="hint tiny">Links to samples, MIDI or voice notes — files are never moved or copied.</p>
+          <p class="hint tiny" data-i18n="track.ideasHint">Links to samples, MIDI or voice notes — files are never moved or copied.</p>
           <ul id="tAttachments" class="attach-list"></ul>
         </div>
 
         <!-- Timestamped fixes -->
         <div class="section-block">
-          <div class="section-head"><span>Fixes</span></div>
+          <div class="section-head"><span data-i18n="track.fixes">Fixes</span></div>
           <ul id="tFixes" class="fix-list"></ul>
           <form id="addFixForm" class="add-fix">
             <input type="text" id="newFixTime" class="time-input" placeholder="2:34" />
-            <input type="text" id="newFixText" placeholder="What needs fixing?" />
-            <button class="ghost-btn small" type="submit">Add</button>
+            <input type="text" id="newFixText" data-i18n-ph="track.fix.ph" placeholder="What needs fixing?" />
+            <button class="ghost-btn small" type="submit" data-i18n="common.add">Add</button>
           </form>
         </div>
 
         <!-- Feedback log -->
         <div class="section-block">
-          <div class="section-head"><span>Feedback</span></div>
+          <div class="section-head"><span data-i18n="track.feedback">Feedback</span></div>
           <ul id="tFeedback" class="feedback-list"></ul>
           <form id="addFeedbackForm" class="add-feedback">
-            <input type="text" id="newFeedbackWho" class="who-input" placeholder="Who" />
-            <input type="text" id="newFeedbackText" placeholder="What they said" />
-            <button class="ghost-btn small" type="submit">Log</button>
+            <input type="text" id="newFeedbackWho" class="who-input" data-i18n-ph="track.who.ph" placeholder="Who" />
+            <input type="text" id="newFeedbackText" data-i18n-ph="track.said.ph" placeholder="What they said" />
+            <button class="ghost-btn small" type="submit" data-i18n="track.log">Log</button>
           </form>
         </div>
 
-        <label class="notes-label">Notes
-          <textarea id="tNotes" rows="5" placeholder="Where did you leave off?"></textarea>
+        <label class="notes-label"><span data-i18n="track.notes">Notes</span>
+          <textarea id="tNotes" rows="5" data-i18n-ph="track.notes.ph" placeholder="Where did you leave off?"></textarea>
         </label>
       </div>
 
       <div class="modal-foot">
-        <button class="ghost-btn danger" id="deleteTrackBtn">Delete track</button>
+        <button class="ghost-btn danger" id="deleteTrackBtn" data-i18n="track.delete">Delete track</button>
         <div class="spacer"></div>
-        <button class="ghost-btn" id="cancelTrackBtn">Cancel</button>
-        <button class="primary-btn" id="saveTrackBtn">Save</button>
+        <button class="ghost-btn" id="cancelTrackBtn" data-i18n="common.cancel">Cancel</button>
+        <button class="primary-btn" id="saveTrackBtn" data-i18n="common.save">Save</button>
       </div>
     </div>
   </div>
@@ -194,19 +194,19 @@
   <div class="modal-overlay" id="stagesModal" hidden>
     <div class="modal narrow">
       <div class="modal-head">
-        <h2>Edit stages</h2>
-        <button class="icon-btn" id="closeStagesModal" title="Close">×</button>
+        <h2 data-i18n="stages.title">Edit stages</h2>
+        <button class="icon-btn" id="closeStagesModal" data-i18n-title="common.close" title="Close">×</button>
       </div>
       <div class="modal-body">
-        <p class="hint">Your roadmap — rename, reorder or remove stages to match how you work.</p>
+        <p class="hint" data-i18n="stages.hint">Your roadmap — rename, reorder or remove stages to match how you work.</p>
         <ul id="stageEditList" class="stage-edit-list"></ul>
         <form id="addStageForm" class="add-check">
-          <input type="text" id="newStageName" placeholder="Add a stage and press Enter" />
+          <input type="text" id="newStageName" data-i18n-ph="stages.new.ph" placeholder="Add a stage and press Enter" />
         </form>
       </div>
       <div class="modal-foot">
         <div class="spacer"></div>
-        <button class="primary-btn" id="doneStagesBtn">Done</button>
+        <button class="primary-btn" id="doneStagesBtn" data-i18n="common.done">Done</button>
       </div>
     </div>
   </div>
@@ -215,44 +215,44 @@
   <div class="modal-overlay" id="projectsModal" hidden>
     <div class="modal">
       <div class="modal-head">
-        <h2>Projects folder</h2>
-        <button class="icon-btn" id="closeProjectsModal" title="Close">×</button>
+        <h2 data-i18n="projects.title">Projects folder</h2>
+        <button class="icon-btn" id="closeProjectsModal" data-i18n-title="common.close" title="Close">×</button>
       </div>
       <div class="modal-body">
-        <p class="hint">Point this scene at the folder(s) where you keep your projects. Track Manager reads the project names — it never moves or changes your files.</p>
+        <p class="hint" data-i18n="projects.hint">Point this scene at the folder(s) where you keep your projects.</p>
 
         <div class="folders-head">
-          <span>Watched folders</span>
-          <button class="ghost-btn small" id="addFolderBtn">+ Add folder</button>
+          <span data-i18n="projects.watched">Watched folders</span>
+          <button class="ghost-btn small" id="addFolderBtn" data-i18n="projects.addFolder">+ Add folder</button>
         </div>
         <ul id="folderList" class="folder-list"></ul>
 
         <div class="inbox-head">
-          <span>Detected projects <span id="inboxCount" class="pct"></span></span>
+          <span><span data-i18n="projects.detected">Detected projects</span> <span id="inboxCount" class="pct"></span></span>
           <div class="inbox-actions">
-            <button class="ghost-btn small" id="rescanBtn">Rescan</button>
-            <button class="primary-btn small" id="addAllBtn">Add all</button>
+            <button class="ghost-btn small" id="rescanBtn" data-i18n="projects.rescan">Rescan</button>
+            <button class="primary-btn small" id="addAllBtn" data-i18n="projects.addAll">Add all</button>
           </div>
         </div>
         <ul id="inboxList" class="inbox-list"></ul>
-        <p id="inboxEmpty" class="hint" hidden>No new projects found. Add a folder, then Rescan.</p>
+        <p id="inboxEmpty" class="hint" hidden></p>
 
         <div class="folders-head">
-          <span>Bounces — mixdowns &amp; masters</span>
+          <span data-i18n="projects.bounces">Bounces — mixdowns &amp; masters</span>
           <div class="inbox-actions">
-            <button class="ghost-btn small" id="addMixFolderBtn">+ Mixdowns</button>
-            <button class="ghost-btn small" id="addMasterFolderBtn">+ Masters</button>
+            <button class="ghost-btn small" id="addMixFolderBtn" data-i18n="projects.addMix">+ Mixdowns</button>
+            <button class="ghost-btn small" id="addMasterFolderBtn" data-i18n="projects.addMaster">+ Masters</button>
           </div>
         </div>
-        <p class="hint tiny">Bounces named like the project + <code>MIX1</code>/<code>MIX2</code> (mixdowns) or <code>M1</code>/<code>M2</code> (masters) get attached to the matching track automatically.</p>
+        <p class="hint tiny" data-i18n="projects.bouncesHint">Bounces named like the project + MIX1/MIX2 or M1/M2 can be linked to the matching track.</p>
         <ul id="mediaFolderList" class="folder-list"></ul>
         <div class="inbox-actions" style="margin-top:8px;">
-          <button class="primary-btn small" id="reviewBouncesBtn" type="button">Review &amp; link bounces…</button>
+          <button class="primary-btn small" id="reviewBouncesBtn" type="button" data-i18n="projects.review">Review &amp; link bounces…</button>
         </div>
       </div>
       <div class="modal-foot">
         <div class="spacer"></div>
-        <button class="primary-btn" id="doneProjectsBtn">Done</button>
+        <button class="primary-btn" id="doneProjectsBtn" data-i18n="common.done">Done</button>
       </div>
     </div>
   </div>
@@ -261,22 +261,22 @@
   <div class="modal-overlay" id="bouncesModal" hidden>
     <div class="modal">
       <div class="modal-head">
-        <h2>Link bounces</h2>
-        <button class="icon-btn" id="closeBouncesModal" title="Close">×</button>
+        <h2 data-i18n="bounces.title">Link bounces</h2>
+        <button class="icon-btn" id="closeBouncesModal" data-i18n-title="common.close" title="Close">×</button>
       </div>
       <div class="modal-body">
-        <p class="hint">Preview each bounce, then choose the track it belongs to and press Link. Let the AI propose matches, or pick manually — nothing is attached until you link it.</p>
+        <p class="hint" data-i18n="bounces.hint">Preview each bounce, then choose the track it belongs to and press Link.</p>
         <div class="inbox-actions" style="margin-bottom:10px;">
-          <button class="ghost-btn small accent-btn" id="aiSuggestBouncesBtn" type="button">✨ Suggest matches (AI)</button>
-          <button class="ghost-btn small" id="linkShownBouncesBtn" type="button">Link all chosen</button>
+          <button class="ghost-btn small accent-btn" id="aiSuggestBouncesBtn" type="button" data-i18n="bounces.aiSuggest">✨ Suggest matches (AI)</button>
+          <button class="ghost-btn small" id="linkShownBouncesBtn" type="button" data-i18n="bounces.linkAll">Link all chosen</button>
           <span class="hint tiny" id="bouncesStatus"></span>
         </div>
         <ul id="bouncesList" class="bounces-list"></ul>
-        <p id="bouncesEmpty" class="hint" hidden>No unlinked bounces. Add mixdown/master folders in the Projects window, or everything is already linked.</p>
+        <p id="bouncesEmpty" class="hint" data-i18n="bounces.empty" hidden>No unlinked bounces.</p>
       </div>
       <div class="modal-foot">
         <div class="spacer"></div>
-        <button class="primary-btn" id="doneBouncesBtn">Done</button>
+        <button class="primary-btn" id="doneBouncesBtn" data-i18n="common.done">Done</button>
       </div>
     </div>
   </div>
@@ -285,50 +285,58 @@
   <div class="modal-overlay" id="themeModal" hidden>
     <div class="modal narrow">
       <div class="modal-head">
-        <h2>Theme</h2>
-        <button class="icon-btn" id="closeThemeModal" title="Close">×</button>
+        <h2 data-i18n="theme.title">Theme</h2>
+        <button class="icon-btn" id="closeThemeModal" data-i18n-title="common.close" title="Close">×</button>
       </div>
       <div class="modal-body">
         <div class="theme-field">
-          <span>Mode</span>
-          <div class="seg" id="themeMode">
-            <button data-mode="dark" type="button">Dark</button>
-            <button data-mode="light" type="button">Light</button>
+          <span data-i18n="theme.language">Language</span>
+          <div class="seg" id="themeLang">
+            <button data-lang="es" type="button">Español</button>
+            <button data-lang="en" type="button">English</button>
           </div>
         </div>
 
         <div class="theme-field">
-          <span>Accent</span>
+          <span data-i18n="theme.mode">Mode</span>
+          <div class="seg" id="themeMode">
+            <button data-mode="dark" type="button" data-i18n="theme.dark">Dark</button>
+            <button data-mode="light" type="button" data-i18n="theme.light">Light</button>
+          </div>
+        </div>
+
+        <div class="theme-field">
+          <span data-i18n="theme.accent">Accent</span>
           <input type="color" id="themeAccent" />
         </div>
 
         <div class="theme-field">
-          <span>Background</span>
+          <span data-i18n="theme.bg">Background</span>
           <div class="seg" id="themeBgType">
-            <button data-bg="solid" type="button">Solid</button>
-            <button data-bg="gradient" type="button">Gradient</button>
-            <button data-bg="image" type="button">Image</button>
+            <button data-bg="solid" type="button" data-i18n="theme.solid">Solid</button>
+            <button data-bg="gradient" type="button" data-i18n="theme.gradient">Gradient</button>
+            <button data-bg="image" type="button" data-i18n="theme.image">Image</button>
           </div>
         </div>
 
         <div class="theme-bg-controls" id="bgSolidCtl" hidden>
-          <label>Color <input type="color" id="bgColor1" /></label>
+          <label><span data-i18n="theme.color">Color</span> <input type="color" id="bgColor1" /></label>
         </div>
         <div class="theme-bg-controls" id="bgGradientCtl" hidden>
-          <label>From <input type="color" id="bgGradFrom" /></label>
-          <label>To <input type="color" id="bgGradTo" /></label>
-          <label>Angle <input type="range" id="bgGradAngle" min="0" max="360" /></label>
+          <label><span data-i18n="theme.from">From</span> <input type="color" id="bgGradFrom" /></label>
+          <label><span data-i18n="theme.to">To</span> <input type="color" id="bgGradTo" /></label>
+          <label><span data-i18n="theme.angle">Angle</span> <input type="range" id="bgGradAngle" min="0" max="360" /></label>
         </div>
         <div class="theme-bg-controls" id="bgImageCtl" hidden>
-          <button class="ghost-btn small" id="bgImagePick" type="button">Choose image…</button>
-          <button class="ghost-btn small danger" id="bgImageClear" type="button">Clear</button>
+          <button class="ghost-btn small" id="bgImagePick" type="button" data-i18n="theme.chooseImg">Choose image…</button>
+          <button class="ghost-btn small danger" id="bgImageClear" type="button" data-i18n="theme.clear">Clear</button>
           <span class="hint tiny" id="bgImageName"></span>
         </div>
       </div>
       <div class="modal-foot">
-        <button class="ghost-btn danger" id="themeResetBtn">Reset</button>
+        <button class="ghost-btn danger" id="themeResetBtn" data-i18n="common.reset">Reset</button>
         <div class="spacer"></div>
-        <button class="primary-btn" id="doneThemeBtn">Done</button>
+        <button class="primary-btn" id="doneThemeBtn" data-i18n="common.done">Done</button>
       </div>
     </div>
   </div>
@@ -337,19 +345,72 @@
   <div class="modal-overlay" id="insightsModal" hidden>
     <div class="modal">
       <div class="modal-head">
-        <h2>Insights — <span id="insightsScene"></span></h2>
-        <button class="icon-btn" id="closeInsightsModal" title="Close">×</button>
+        <h2><span data-i18n="ins.title">Insights</span> — <span id="insightsScene"></span></h2>
+        <button class="icon-btn" id="closeInsightsModal" data-i18n-title="common.close" title="Close">×</button>
       </div>
       <div class="modal-body" id="insightsBody"></div>
       <div class="modal-foot">
         <div class="spacer"></div>
-        <button class="primary-btn" id="doneInsightsBtn">Done</button>
+        <button class="primary-btn" id="doneInsightsBtn" data-i18n="common.done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- First-run Quick Setup wizard -->
+  <div class="setup-overlay" id="setupWizard" hidden>
+    <div class="setup-card">
+      <img src="assets/logo.png" class="setup-logo" alt="trackr" />
+      <h1 class="setup-title" data-i18n="wiz.welcome">Welcome to trackr</h1>
+      <p class="setup-sub" data-i18n="wiz.subtitle">Let's set things up. This only takes a moment and won't show again.</p>
+
+      <div class="setup-field">
+        <span class="setup-label" data-i18n="wiz.language">Language</span>
+        <div class="seg" id="wizLang">
+          <button data-lang="es" type="button">Español</button>
+          <button data-lang="en" type="button">English</button>
+        </div>
+      </div>
+
+      <p class="setup-lead" data-i18n="wiz.foldersLead">Point trackr at your folders (you can change these later). All optional.</p>
+
+      <div class="setup-folder">
+        <div class="setup-folder-info">
+          <span class="setup-folder-name" data-i18n="wiz.projectsFolder">Projects folder</span>
+          <span class="setup-folder-help" data-i18n="wiz.projectsHelp">Where you keep your DAW projects</span>
+          <span class="setup-folder-path" id="wizProjPath" hidden></span>
+        </div>
+        <button class="ghost-btn small" id="wizProjBtn" type="button" data-i18n="wiz.choose">Choose…</button>
+      </div>
+
+      <div class="setup-folder">
+        <div class="setup-folder-info">
+          <span class="setup-folder-name"><span class="role-badge role-mixdown">MIX</span> <span data-i18n="wiz.mixFolder">Mixdowns folder</span></span>
+          <span class="setup-folder-help" data-i18n="wiz.mixHelp">Where you dump your mixdown bounces</span>
+          <span class="setup-folder-path" id="wizMixPath" hidden></span>
+        </div>
+        <button class="ghost-btn small" id="wizMixBtn" type="button" data-i18n="wiz.choose">Choose…</button>
+      </div>
+
+      <div class="setup-folder">
+        <div class="setup-folder-info">
+          <span class="setup-folder-name"><span class="role-badge role-master">MASTER</span> <span data-i18n="wiz.masterFolder">Masters folder</span></span>
+          <span class="setup-folder-help" data-i18n="wiz.masterHelp">Where you dump your masters</span>
+          <span class="setup-folder-path" id="wizMasterPath" hidden></span>
+        </div>
+        <button class="ghost-btn small" id="wizMasterBtn" type="button" data-i18n="wiz.choose">Choose…</button>
+      </div>
+
+      <div class="setup-actions">
+        <button class="ghost-btn" id="wizSkipBtn" type="button" data-i18n="wiz.skip">Skip for now</button>
+        <div class="spacer"></div>
+        <button class="primary-btn" id="wizFinishBtn" type="button" data-i18n="wiz.finish">Finish setup</button>
       </div>
     </div>
   </div>
 
   <div id="toast" class="toast" hidden></div>
 
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
