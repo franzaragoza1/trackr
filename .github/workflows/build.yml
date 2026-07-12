@@ -44,11 +44,24 @@ jobs:
 
       - name: Build installer
         shell: bash
-        run: npx electron-builder ${{ matrix.args }}
+        run: |
+          set -o pipefail
+          npx electron-builder ${{ matrix.args }} --publish never 2>&1 | tee build.log
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Unsigned build — don't try to auto-discover a macOS signing identity.
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      # If the build fails, surface the log tail in the job summary (readable via API).
+      - name: Report build log on failure
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo "## electron-builder log (tail) — ${{ matrix.os }}"
+            echo '```'
+            tail -n 80 build.log 2>/dev/null || echo "(no build.log)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         with:

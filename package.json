@@ -1,6 +1,6 @@
 {
   "name": "track-manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Track Manager — a local, private task manager to move your music tracks from idea to released.",
   "main": "main.js",
   "author": "AKM",
