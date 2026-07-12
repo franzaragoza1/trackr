@@ -1458,7 +1458,8 @@ function aiAppendMessage(role, html) {
 }
 
 async function openAiModal() {
-  document.getElementById('aiModal').hidden = false;
+  document.getElementById('app').classList.add('assistant-open');
+  document.getElementById('assistantPanel').hidden = false;
   const cfg = await window.api.aiGetConfig();
   document.getElementById('aiModel').value = cfg.model || '';
   showAiSettings(!cfg.hasKey);
@@ -1469,10 +1470,19 @@ async function openAiModal() {
   if (cfg.hasKey) document.getElementById('aiInput').focus();
 }
 
+function closeAssistant() {
+  document.getElementById('app').classList.remove('assistant-open');
+  document.getElementById('assistantPanel').hidden = true;
+}
+
+function toggleAssistant() {
+  if (document.getElementById('assistantPanel').hidden) openAiModal();
+  else closeAssistant();
+}
+
 function showAiSettings(show) {
   document.getElementById('aiSettings').hidden = !show;
   document.getElementById('aiChatArea').hidden = show;
-  document.querySelector('.ai-foot').style.display = show ? 'none' : '';
 }
 
 async function sendAiMessage(text) {
@@ -1545,8 +1555,8 @@ async function aiSuggestChecklist() {
 }
 
 function wireAi() {
-  document.getElementById('assistantBtn').addEventListener('click', openAiModal);
-  document.getElementById('closeAiModal').addEventListener('click', () => (document.getElementById('aiModal').hidden = true));
+  document.getElementById('assistantBtn').addEventListener('click', toggleAssistant);
+  document.getElementById('closeAiPanel').addEventListener('click', closeAssistant);
   document.getElementById('aiSettingsBtn').addEventListener('click', () => {
     const showing = !document.getElementById('aiSettings').hidden;
     showAiSettings(!showing);

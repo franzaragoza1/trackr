@@ -261,7 +261,7 @@ ipcMain.handle('fs:exists', (_e, p) => {
 // ---- AI assistant (OpenRouter) ----
 // Key + model live in userData, never in the repo and never sent to the renderer.
 const AI_FILE = () => path.join(app.getPath('userData'), 'ai-config.json');
-const DEFAULT_MODEL = 'anthropic/claude-3.5-sonnet';
+const DEFAULT_MODEL = 'anthropic/claude-sonnet-5';
 
 function readAiConfig() {
   try {

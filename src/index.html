@@ -54,6 +54,43 @@
 
       <div id="board" class="board"></div>
     </main>
+
+    <!-- Assistant: docked panel, part of the layout (not a popup) -->
+    <aside class="assistant-panel" id="assistantPanel" hidden>
+      <div class="assistant-head">
+        <span class="assistant-title">✨ Assistant</span>
+        <div class="assistant-head-actions">
+          <button class="icon-btn" id="aiSettingsBtn" title="Settings">⚙</button>
+          <button class="icon-btn" id="closeAiPanel" title="Close">×</button>
+        </div>
+      </div>
+
+      <div id="aiSettings" class="ai-settings" hidden>
+        <div class="ai-settings-card">
+          <p class="ai-settings-lead">Connect <strong>OpenRouter</strong> to enable the assistant. Your key stays on this computer.</p>
+          <label class="ai-label">API key
+            <input type="password" id="aiKey" class="ai-field" placeholder="sk-or-..." />
+          </label>
+          <label class="ai-label">Model
+            <input type="text" id="aiModel" class="ai-field" placeholder="anthropic/claude-sonnet-5" />
+          </label>
+          <p class="ai-hint">Try <code>anthropic/claude-sonnet-5</code>, <code>anthropic/claude-3.5-haiku</code> (cheaper) or <code>openai/gpt-4o-mini</code>. More at openrouter.ai/models.</p>
+          <div class="ai-settings-actions">
+            <button class="ghost-btn small danger" id="aiClearKeyBtn" type="button">Clear key</button>
+            <div class="spacer"></div>
+            <button class="primary-btn small" id="aiSaveConfigBtn" type="button">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="aiChatArea" class="ai-chat-area">
+        <div id="aiMessages" class="ai-messages"></div>
+        <form id="aiForm" class="ai-form">
+          <input type="text" id="aiInput" class="ai-field" placeholder="Ask about your tracks…" autocomplete="off" />
+          <button class="primary-btn" id="aiSendBtn" type="submit">Send</button>
+        </form>
+      </div>
+    </aside>
   </div>
 
   <!-- Track detail modal -->
@@ -228,48 +265,6 @@
       <div class="modal-foot">
         <div class="spacer"></div>
         <button class="primary-btn" id="doneBouncesBtn">Done</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- AI assistant modal -->
-  <div class="modal-overlay" id="aiModal" hidden>
-    <div class="modal">
-      <div class="modal-head">
-        <h2>✨ Assistant</h2>
-        <div class="modal-head-actions">
-          <button class="icon-btn" id="aiSettingsBtn" title="Settings">⚙</button>
-          <button class="icon-btn" id="closeAiModal" title="Close">×</button>
-        </div>
-      </div>
-
-      <div class="modal-body ai-body">
-        <div id="aiSettings" class="ai-settings" hidden>
-          <p class="hint">Uses <strong>OpenRouter</strong>. Your key is stored only on this Mac/PC and never leaves it except to call OpenRouter. Get a key at openrouter.ai/keys.</p>
-          <label>API key
-            <input type="password" id="aiKey" placeholder="sk-or-..." />
-          </label>
-          <label>Model
-            <input type="text" id="aiModel" placeholder="anthropic/claude-3.5-sonnet" />
-          </label>
-          <p class="hint tiny">Examples: <code>anthropic/claude-3.5-sonnet</code>, <code>anthropic/claude-3.5-haiku</code> (cheaper), <code>openai/gpt-4o-mini</code>. Browse openrouter.ai/models.</p>
-          <div class="ai-settings-actions">
-            <button class="ghost-btn small danger" id="aiClearKeyBtn" type="button">Clear key</button>
-            <div class="spacer"></div>
-            <button class="primary-btn small" id="aiSaveConfigBtn" type="button">Save</button>
-          </div>
-        </div>
-
-        <div id="aiChatArea" class="ai-chat-area">
-          <div id="aiMessages" class="ai-messages"></div>
-        </div>
-      </div>
-
-      <div class="modal-foot ai-foot">
-        <form id="aiForm" class="ai-form">
-          <input type="text" id="aiInput" placeholder="Ask about your tracks — e.g. what should I finish this week?" autocomplete="off" />
-          <button class="primary-btn" id="aiSendBtn" type="submit">Send</button>
-        </form>
       </div>
     </div>
   </div>
