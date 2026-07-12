@@ -1,0 +1,59 @@
+name: Build installers
+
+# Run manually from the Actions tab, or automatically when you push a version tag.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: --win nsis --x64
+          - os: macos-latest
+            args: --mac dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      # free-config.json is gitignored, so recreate it from a repo secret.
+      # Add a secret named FREE_OR_KEY (an OpenRouter key capped to 0 credit) to
+      # enable the assistant's Free mode in the built apps. Optional — without it,
+      # the app just hides the Free option.
+      - name: Write Free-mode key
+        shell: bash
+        env:
+          FREE_OR_KEY: ${{ secrets.FREE_OR_KEY }}
+        run: |
+          if [ -n "$FREE_OR_KEY" ]; then
+            printf '{ "key": "%s", "models": ["openai/gpt-oss-120b:free", "openrouter/free"] }\n' "$FREE_OR_KEY" > free-config.json
+            echo "Free mode enabled for this build."
+          else
+            echo "No FREE_OR_KEY secret set; Free mode disabled in this build."
+          fi
+
+      - name: Build installer
+        shell: bash
+        run: npx electron-builder ${{ matrix.args }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Unsigned build — don't try to auto-discover a macOS signing identity.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trackr-${{ matrix.os }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+          if-no-files-found: ignore

@@ -21,6 +21,14 @@
     "win": {
       "target": "nsis",
       "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.music",
+      "icon": "build/icon.png"
+    },
+    "dmg": {
+      "title": "trackr"
     }
   },
   "devDependencies": {

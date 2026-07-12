@@ -86,13 +86,30 @@ A single JSON file in Electron's per‑user data directory
 The AI assistant's OpenRouter key is stored separately in `ai-config.json` in the
 same folder — never in the project and never in your backup.
 
-## Build a standalone installer (optional)
+## Build installers
+
+**Windows** (from Windows):
 
 ```bash
 npm run dist
 ```
 
-Produces a Windows installer via electron‑builder in `dist/`.
+Produces `dist/trackr Setup <version>.exe` (NSIS, per‑user, no admin needed).
+It's unsigned, so Windows SmartScreen shows a warning the first time → *More info →
+Run anyway*.
+
+> If the build fails extracting `winCodeSign` with a *"Cannot create symbolic link"*
+> error, extract it once by hand (the macOS symlinks it chokes on aren't needed on
+> Windows), then rebuild:
+> `7za x <cache>/winCodeSign/*.7z -o<cache>/winCodeSign/winCodeSign-2.6.0`
+> (cache = `%LOCALAPPDATA%/electron-builder/Cache`).
+
+**macOS** (`.dmg`) can only be built **on macOS** — either run `npx electron-builder
+--mac dmg` on a Mac, or use the included **GitHub Actions** workflow
+(`.github/workflows/build.yml`), which builds Windows *and* macOS on every version tag
+(or manually from the Actions tab). Add a repo secret `FREE_OR_KEY` (a 0‑credit
+OpenRouter key) to bake Free mode into the CI builds. Unsigned mac apps are blocked by
+Gatekeeper unless the user right‑clicks → Open, or you sign with an Apple Developer ID.
 
 ## Using the AI assistant
 
