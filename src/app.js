@@ -489,7 +489,7 @@ function renderModalAttachments() {
         <button class="ghost-btn small attach-reveal" type="button">${t('track.show')}</button>
         <button class="check-del attach-del" type="button" title="${t('track.remove')}">×</button>
       </div>
-      ${isAudio ? '<audio class="attach-audio" controls preload="none"></audio>' : ''}`;
+      ${isAudio ? '<audio class="attach-audio" controls preload="metadata"></audio>' : ''}`;
 
     if (isAudio) {
       const audio = li.querySelector('.attach-audio');
@@ -1273,7 +1273,7 @@ function renderBouncesList() {
         ${roleBadge}
         <span class="bounce-name" title="${escapeHtml(f.path)}">${escapeHtml(f.fileName)}</span>
       </div>
-      <audio class="bounce-audio" controls preload="none"></audio>
+      <audio class="bounce-audio" controls preload="metadata"></audio>
       <div class="bounce-actions">
         <select class="bounce-track">${trackOptionsHtml(guessed)}</select>
         <button class="primary-btn small link-one" type="button">${t('bounces.link')}</button>

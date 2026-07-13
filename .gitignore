@@ -5,3 +5,8 @@ dist/
 
 # Bundled Free-mode key — kept out of the repo, but included in packaged builds.
 free-config.json
+
+# Local installer builds (published via Releases, not committed)
+*.exe
+*.dmg
+*.zip

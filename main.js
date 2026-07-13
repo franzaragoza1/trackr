@@ -1,7 +1,6 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { pathToFileURL } = require('url');
 
 // Custom scheme to stream local media files into the renderer (supports range
 // requests, so audio seeking works). Must be registered before app is ready.
@@ -58,13 +57,106 @@ function createWindow() {
   }
 }
 
+const MEDIA_MIME = {
+  '.wav': 'audio/wav',
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.ogg': 'audio/ogg',
+  '.oga': 'audio/ogg',
+  '.flac': 'audio/flac',
+  '.aiff': 'audio/aiff',
+  '.aif': 'audio/aiff',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm'
+};
+
+// Node read stream -> web ReadableStream, with backpressure so a big wav
+// doesn't get buffered whole in memory.
+function fileStream(filePath, start, end) {
+  const rs = fs.createReadStream(filePath, { start, end });
+  return new ReadableStream({
+    start(controller) {
+      rs.on('data', (chunk) => {
+        controller.enqueue(new Uint8Array(chunk));
+        if (controller.desiredSize !== null && controller.desiredSize <= 0) rs.pause();
+      });
+      rs.on('end', () => controller.close());
+      rs.on('error', (err) => controller.error(err));
+    },
+    pull() {
+      rs.resume();
+    },
+    cancel() {
+      rs.destroy();
+    }
+  });
+}
+
+// `Range: bytes=<start>-<end>` (either bound optional) -> { start, end } clamped
+// to the file, or null when absent/unsatisfiable.
+function parseRange(header, size) {
+  const m = /^bytes=(\d*)-(\d*)$/.exec((header || '').trim());
+  if (!m || (!m[1] && !m[2])) return null;
+  let start;
+  let end;
+  if (m[1]) {
+    start = Number(m[1]);
+    end = m[2] ? Number(m[2]) : size - 1;
+  } else {
+    start = size - Number(m[2]); // suffix range: last N bytes
+    end = size - 1;
+  }
+  if (start < 0) start = 0;
+  if (end > size - 1) end = size - 1;
+  if (start > end) return null;
+  return { start, end };
+}
+
 app.whenReady().then(() => {
   // trackmedia://x/<encoded-absolute-path>  ->  streams that local file.
-  protocol.handle('trackmedia', (request) => {
+  // Serves byte ranges so <audio> can read the real duration and seek.
+  protocol.handle('trackmedia', async (request) => {
+    let filePath;
     try {
       const encoded = request.url.replace(/^trackmedia:\/\/[^/]*\//, '');
-      const filePath = decodeURIComponent(encoded);
-      return net.fetch(pathToFileURL(filePath).toString());
+      filePath = decodeURIComponent(encoded);
+      const stat = await fs.promises.stat(filePath);
+      if (!stat.isFile()) return new Response('Not found', { status: 404 });
+
+      const size = stat.size;
+      const type = MEDIA_MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
+      const rangeHeader = request.headers.get('range');
+
+      if (rangeHeader) {
+        const range = parseRange(rangeHeader, size);
+        if (!range) {
+          return new Response(null, {
+            status: 416,
+            headers: { 'Content-Range': `bytes */${size}`, 'Accept-Ranges': 'bytes' }
+          });
+        }
+        return new Response(fileStream(filePath, range.start, range.end), {
+          status: 206,
+          headers: {
+            'Content-Type': type,
+            'Content-Length': String(range.end - range.start + 1),
+            'Content-Range': `bytes ${range.start}-${range.end}/${size}`,
+            'Accept-Ranges': 'bytes',
+            'Cache-Control': 'no-store'
+          }
+        });
+      }
+
+      return new Response(fileStream(filePath, 0, size ? size - 1 : 0), {
+        status: 200,
+        headers: {
+          'Content-Type': type,
+          'Content-Length': String(size),
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'no-store'
+        }
+      });
     } catch (e) {
       return new Response('Not found', { status: 404 });
     }
