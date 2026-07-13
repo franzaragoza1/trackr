@@ -14,8 +14,11 @@ jobs:
         include:
           - os: windows-latest
             args: --win nsis --x64
+          # --universal: one dmg that runs on both Intel and Apple Silicon.
+          # Without it electron-builder only targets the runner's own arch (arm64),
+          # which leaves Intel Macs unable to open the app.
           - os: macos-latest
-            args: --mac dmg
+            args: --mac dmg --universal
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
